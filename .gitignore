@@ -6,3 +6,22 @@ debian/*.substvars
 debian/*.debhelper.log
 debian/*-stamp
 debian/files
+
+# Python packaging artifacts
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+dist/
+*.whl
+*.egg
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.tox/
+*.cover
+.coverage
+htmlcov/

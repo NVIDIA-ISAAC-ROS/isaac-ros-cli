@@ -32,6 +32,13 @@ def init(environment, yes):
     if not is_root:
         click.echo("Error: This command requires administrator (sudo) privileges.", err=True)
         click.echo("Please rerun with sudo.", err=True)
+        click.echo("", err=True)
+        click.echo("If installed with pipx/pip --user, try one of these:", err=True)
+        click.echo("  sudo ~/.local/bin/isaac-ros init docker", err=True)
+        click.echo("  sudo env \"PATH=$PATH\" isaac-ros init docker", err=True)
+        click.echo("", err=True)
+        click.echo("Or create a system-level symlink (one-time setup):", err=True)
+        click.echo("  sudo ln -s ~/.local/bin/isaac-ros /usr/local/bin/isaac-ros", err=True)
         sys.exit(1)
 
     try:

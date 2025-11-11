@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "isaac-ros-cli"
+version = "1.0.0"
+description = "CLI for NVIDIA Isaac ROS"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "Proprietary"}
+authors = [
+    {name = "NVIDIA Corporation", email = "isaac-ros-maintainers@nvidia.com"}
+]
+maintainers = [
+    {name = "Isaac ROS Maintainers", email = "isaac-ros-maintainers@nvidia.com"}
+]
+keywords = ["isaac", "ros", "robotics", "nvidia", "docker"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "click>=8.0",
+    "PyYAML",
+    "termcolor",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black",
+    "flake8",
+    "mypy",
+]
+
+[project.urls]
+Homepage = "https://nvidia-isaac-ros.github.io"
+Documentation = "https://nvidia-isaac-ros.github.io"
+Repository = "https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_cli"
+Issues = "https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_cli/issues"
+
+[project.scripts]
+isaac-ros = "isaac_ros_cli.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+isaac_ros_cli = ["py.typed"]
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
