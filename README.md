@@ -19,6 +19,9 @@ sudo isaac-ros init docker
 
 # Activate environment
 isaac-ros activate
+
+# Build image only (useful for VS Code dev containers)
+isaac-ros activate --build-only
 ```
 
 ## Rebuilding Debian Package
