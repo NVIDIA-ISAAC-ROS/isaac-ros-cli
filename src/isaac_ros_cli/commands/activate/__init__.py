@@ -22,6 +22,7 @@ from isaac_ros_cli.config_loader import load_config
 @click.option('--use-cached-build-image', is_flag=True,
               help='Use cached build image if available.')
 @click.option('--no-cache', is_flag=True, help='Do not use docker layer cache.')
+@click.option('--build-only', is_flag=True, help='Build the image only without starting a container.')
 @click.option('--verbose', is_flag=True, help='Enable verbose output.')
 def activate(
         build: bool,
@@ -29,6 +30,7 @@ def activate(
         push: bool,
         use_cached_build_image: bool,
         no_cache: bool,
+        build_only: bool,
         verbose: bool
 ):
     """Activate Isaac ROS development environment based on saved configuration."""
@@ -61,6 +63,7 @@ def activate(
                 push=push,
                 use_cached_build_image=use_cached_build_image,
                 no_cache=no_cache,
+                build_only=build_only,
                 verbose=verbose
             )
         case _:

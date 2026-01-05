@@ -21,6 +21,7 @@ def _build_run_dev_command(
     push: bool,
     use_cached_build_image: bool,
     no_cache: bool,
+    build_only: bool,
     verbose: bool
 ):
     cmd = [
@@ -60,6 +61,8 @@ def _build_run_dev_command(
         cmd.append("--use-cached-build-image")
     if no_cache:
         cmd.append("--no-cache")
+    if build_only:
+        cmd.append("--build-only")
     if verbose:
         cmd.append("--verbose")
     return cmd
@@ -71,12 +74,13 @@ def activate_docker(
     push: bool,
     use_cached_build_image: bool,
     no_cache: bool,
+    build_only: bool,
     verbose: bool
 ):
     """Activate Docker-based Isaac ROS environment by delegating to run_dev.py."""
     cfg = load_config()
     cmd = _build_run_dev_command(
-        cfg, build, build_local, push, use_cached_build_image, no_cache, verbose)
+        cfg, build, build_local, push, use_cached_build_image, no_cache, build_only, verbose)
 
     # run run_dev.py
     subprocess.run(cmd, check=False)

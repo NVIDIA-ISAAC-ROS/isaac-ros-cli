@@ -415,6 +415,13 @@ def parse_args():
         help="Push the image to the target registry when complete"
     )
     parser.add_argument(
+        "--build-only",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Build the image only without starting a container"
+    )
+    parser.add_argument(
         "--container-name",
         default="isaac_ros_dev_container",
         help="Name of the Docker container"
@@ -505,8 +512,10 @@ def main():
     check_git_lfs_installed()
     check_lfs_files(isaac_dir)
 
-    remove_exited_container(container_name)
-    attach_to_running_container(container_name)
+    # Skip container operations if --build-only is set
+    if not args.build_only:
+        remove_exited_container(container_name)
+        attach_to_running_container(container_name)
 
     if args.no_cache:
         cache_from_registry_name = "local"
@@ -560,6 +569,11 @@ def main():
             sys.exit(1)
 
     print(f"Using image: {base_name}")
+
+    # Skip running container if --build-only is set
+    if args.build_only:
+        print("Build-only mode: Skipping container creation.")
+        return
 
     run_docker_container(args, container_name, base_name, isaac_dir)
 
