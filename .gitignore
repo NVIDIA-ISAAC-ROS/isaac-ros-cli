@@ -6,3 +6,7 @@ debian/*.substvars
 debian/*.debhelper.log
 debian/*-stamp
 debian/files
+
+# Python cache files
+__pycache__/
+*.pyc
