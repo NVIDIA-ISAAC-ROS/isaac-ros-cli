@@ -26,16 +26,19 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV SHELL=/bin/bash
 SHELL ["/bin/bash", "-c"]
 
+# Ensure /tmp permissions are correct for apt (fixes "Couldn't create temporary file /tmp/...")
+RUN mkdir -p /tmp && chmod 1777 /tmp
+
 
 # Ensure we have universe
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y \
         software-properties-common \
 && add-apt-repository universe \
 && apt-get update
 
 # Fundamentals
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 apt-get update && apt-get install -y \
         apt-transport-https \
         apt-utils \
@@ -83,7 +86,7 @@ apt-get update && apt-get install -y \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
 # Setup NVIDIA CUDA apt keyring
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 if [[ ${PLATFORM} == 'arm64' ]]; then \
     curl -o /tmp/cuda-keyring.deb \
          https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/sbsa/cuda-keyring_1.1-1_all.deb \
@@ -101,7 +104,7 @@ else \
 fi
 
 # Add Isaac apt repository
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     /bin/bash -c ' \
     set -e; \
     k="/usr/share/keyrings/nvidia-isaac-ros.gpg"; \
@@ -114,7 +117,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
     '
 
 # Core dev libraries
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 apt-get update && apt-get install -y \
         gfortran \
         graphicsmagick-libmagick-dev-compat \
@@ -205,7 +208,7 @@ RUN python3 -m pip install -U --break-system-packages\
 RUN ln -s /usr/lib/python3/dist-packages/numpy/core/include/numpy /usr/include/numpy
 
 # Add MQTT binaries and libraries
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 apt-add-repository ppa:mosquitto-dev/mosquitto-ppa \
 && apt-get update && apt-get install -y \
         mosquitto \
@@ -226,7 +229,7 @@ RUN python3 -m pip install --break-system-packages -U \
     hdbscan
 
 # # Setup Jetson debian repositories
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 apt-key adv --fetch-key https://repo.download.nvidia.com/jetson/jetson-ota-public.asc ; \
 if [[ ${PLATFORM} == 'arm64' ]]; then \
     add-apt-repository "deb http://repo.download.nvidia.com/jetson/common r38.2 main" ; \
@@ -237,7 +240,7 @@ else \
 fi ; \
 apt-get update
 
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y \
         python3-libnvinfer=10.13.2.6-1+cuda13.0 \
         libnvinfer-dev=10.13.2.6-1+cuda13.0
@@ -245,11 +248,11 @@ RUN --mount=type=cache,target=/var/cache/apt \
 ENV PATH="/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/src/tensorrt/bin:${PATH}"
 
 # Install VPI
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y vpi4-dev=4.0.0~er5 libnvvpi4=4.0.0~er5
 
 # Install CV-CUDA
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 cd /tmp ; \
 if [[ ${PLATFORM} == 'arm64' ]]; then \
     wget -q https://github.com/CVCUDA/CV-CUDA/releases/download/v0.14.0-beta/cvcuda-lib-0.14.0-cuda12-aarch64-linux.deb && \
@@ -266,7 +269,7 @@ else \
     echo "Unrecognized platform: ${PLATFORM}" && exit 1 ; \
 fi
 
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 if [[ ${PLATFORM} == 'arm64' ]]; then \
     apt update \
     && apt install --yes --no-install-recommends \
@@ -285,7 +288,7 @@ RUN python3 -m pip install --break-system-packages torch==2.9.0+cu130 torchvisio
 # add ucx library path for torch
 ENV LD_LIBRARY_PATH="/usr/local/lib:/opt/hpcx/ucx/lib:${LD_LIBRARY_PATH}"
 
-RUN  --mount=type=cache,target=/var/cache/apt \
+RUN  --mount=type=cache,target=/var/cache/apt,sharing=locked \
 if [[ ${PLATFORM} == 'arm64' ]]; then \
     cd /opt \
     && wget -q https://isaac.download.nvidia.com/isaac-ros/release-4.0/generic/tritonserver.2.60-aarch64.tar.gz \
@@ -301,7 +304,7 @@ else \
 fi
 
 # extra dependencies for tritonserver
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y libnccl2
 
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/opt/tritonserver/lib"
@@ -311,7 +314,7 @@ ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/opt/tritonserver/lib"
 FROM common AS extended-arm64
 
 # install nvshmem (required by PyTorch)
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y libnvshmem3-cuda-13 libnvshmem3-dev-cuda-13
 ENV LD_LIBRARY_PATH="/usr/lib/aarch64-linux-gnu/nvshmem/13:${LD_LIBRARY_PATH}"
 
@@ -320,7 +323,7 @@ RUN update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm
 ENV LD_LIBRARY_PATH="/opt/nvidia/vpi4/lib64:/usr/lib/aarch64-linux-gnu/tegra:/usr/local/cuda/targets/sbsa-linux/lib:/usr/lib/aarch64-linux-gnu/tegra-egl:/usr/lib/aarch64-linux-gnu/tegra/weston:/usr/lib/aarch64-linux-gnu-host:${LD_LIBRARY_PATH}"
 
 # Install nvpl_slim_24.04
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     cd /opt && \
     curl "https://isaac.download.nvidia.com/isaac-ros/release-4.0/generic/nvpl_slim_24.04.tar" --output nvpl_slim_24.04.tar && \
     tar -xf nvpl_slim_24.04.tar && \
@@ -330,7 +333,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
 ENV NVPL_LAPACK_MATH_MODE=PEDANTIC
 
 # Install pva-allow-2 as a workaround
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   mkdir -p /tmp/pva && cd /tmp/pva \
   && wget -q https://repo.download.nvidia.com/jetson/common/pool/main/p/pva-allow-2/pva-allow-2_2.0.0~rc3_all.deb \
   && dpkg -i pva-allow-2_2.0.0~rc3_all.deb || true \
@@ -338,16 +341,16 @@ RUN --mount=type=cache,target=/var/cache/apt \
   && dpkg --configure pva-allow-2 \
   && cd /tmp && rm -Rf /tmp/pva
 
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update \
     && apt-get -y install libcusparselt0 libcusparselt-dev
 
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y libnccl2 libnccl-dev
 
 # Install boost version >= 1.78 for boost::span
 # Current libboost-dev apt packages are < 1.78, so install from tar.gz
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     wget -q -O /tmp/boost.tar.gz \
     https://archives.boost.io/release/1.80.0/source/boost_1_80_0.tar.gz \
     && (cd /tmp && tar xzf boost.tar.gz) \
@@ -372,12 +375,12 @@ RUN apt-get install yasm && wget -q https://ffmpeg.org/releases/ffmpeg-4.4.2.tar
 FROM common AS extended-amd64
 
 # install nvshmem (required by PyTorch)
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get install -y libnvshmem3-cuda-13 libnvshmem3-dev-cuda-13
 ENV LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/nvshmem/13:${LD_LIBRARY_PATH}"
 
 # Install nvv4l2 for GXF Multimedia h264 codec
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     wget -q --content-disposition 'https://api.ngc.nvidia.com/v2/resources/org/nvidia/gxf_and_gc/5.1.0/files?redirect=true&path=nvv4l2_x86_ds-8.0.deb'  --output-document 'nvv4l2_x86_ds-8.0.deb' \
     && dpkg -i nvv4l2_x86_ds-8.0.deb \
     && rm nvv4l2_x86_ds-8.0.deb \
@@ -385,11 +388,11 @@ RUN --mount=type=cache,target=/var/cache/apt \
     && ln -s /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1 /usr/lib/x86_64-linux-gnu/libnvidia-encode.so
 
 # Install nvsci
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y nvsci
 
 # Manually install gnat-23.so for isaac_ros_gxf, used to be in nvsci 7.0.0 but now removed.
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     wget https://isaac.download.nvidia.com/isaac-ros/release-4.0/generic/libgnat-23.so \
     && cp libgnat-23.so /usr/lib/x86_64-linux-gnu/libgnat-23.so \
     && rm libgnat-23.so
@@ -399,7 +402,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
 FROM extended-${PLATFORM} AS base
 
 # Use system version protobuf
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y \
         libceres-dev \
         libabsl-dev \
@@ -411,7 +414,7 @@ ARG USERNAME=admin
 ENV USERNAME=${USERNAME}
 
 # Install prerequisites
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 apt-get update && apt-get install -y \
         gosu \
         sudo \

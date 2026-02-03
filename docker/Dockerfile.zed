@@ -1,0 +1,54 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+
+# Dockerfile for setting up ZED SDK
+ARG BASE_IMAGE=ubuntu:24.04
+FROM ${BASE_IMAGE}
+
+# Use bash for RUN commands (needed for `source`)
+SHELL ["/bin/bash", "-c"]
+
+COPY scripts/install-zed-x86_64.sh /opt/zed/install-zed-x86_64.sh
+COPY scripts/install-zed-aarch64.sh /opt/zed/install-zed-aarch64.sh
+
+# Install ZED SDK based on architecture
+RUN chmod +x /opt/zed/install-zed-x86_64.sh /opt/zed/install-zed-aarch64.sh && \
+    arch="$(uname -m)" && \
+    if [[ "${arch}" == "x86_64" ]]; then \
+        /opt/zed/install-zed-x86_64.sh; \
+    elif [[ "${arch}" == "aarch64" ]]; then \
+        /opt/zed/install-zed-aarch64.sh; \
+    else \
+        echo "Unsupported architecture: ${arch}"; \
+        exit 1; \
+    fi
+
+# ------------------------------------------------------------------------------
+# Install zed-ros2-wrapper into a workspace and build it
+# Expects:
+#   - ROS 2 Jazzy already installed in the base image with ${ROS_ROOT} set
+#   - rosdep initialized (as in our ros2_jazzy base)
+# -------------------------------------------------------------------------------
+ARG ISAAC_ROS_WS=/opt/ros_ws
+ENV ISAAC_ROS_WS=${ISAAC_ROS_WS}
+
+# Clone zed-ros2-wrapper (with submodules)
+RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,sharing=locked,target=/var/lib/apt/lists \
+    mkdir -p ${ISAAC_ROS_WS}/src && cd ${ISAAC_ROS_WS}/src \
+    && git clone --recurse-submodules https://github.com/stereolabs/zed-ros2-wrapper
+
+# Install dependencies and build only up to zed_wrapper
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    cd ${ISAAC_ROS_WS} \
+    && apt-get update \
+    && source ${ROS_ROOT}/setup.bash \
+    && rosdep update \
+    && rosdep install --from-paths src/zed-ros2-wrapper --ignore-src -r -y \
+    && colcon build --symlink-install --packages-up-to zed_wrapper \
+    && echo "source ${ISAAC_ROS_WS}/install/setup.bash" | tee --append /etc/bash.bashrc
+

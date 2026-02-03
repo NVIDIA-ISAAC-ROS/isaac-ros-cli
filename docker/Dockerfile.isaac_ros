@@ -1,0 +1,132 @@
+# Copyright (c) 2025-2026, NVIDIA CORPORATION.  All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+#
+# All-in-one image for Isaac ROS development
+FROM nvcr.io/nvidia/base/ubuntu:noble-20251013
+
+ARG PLATFORM=amd64
+
+# Set up /tmp permissions for apt-get/apt-key
+RUN chmod 1777 /tmp
+RUN mkdir -p /var/cache/apt/tmp && chmod 1777 /var/cache/apt/tmp && \
+    echo 'APT::ExtractTemplates::TempDir "/var/cache/apt/tmp";' \
+      > /etc/apt/apt.conf.d/99temp
+
+# Store list of packages (must be first)
+RUN mkdir -p /opt/nvidia/isaac_ros_dev_base && dpkg-query -W | sort > /opt/nvidia/isaac_ros_dev_base/base-start-packages.csv
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV SHELL=/bin/bash
+SHELL ["/bin/bash", "-c"]
+
+# Common utilities
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+        build-essential \
+        ca-certificates \
+        curl \
+        gnupg \
+        lsb-release \
+        gosu \
+        sudo \
+        udev \
+        wget
+
+# Set up Isaac ROS apt repository
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    /bin/bash -c ' \
+    set -e; \
+    k="/usr/share/keyrings/nvidia-isaac-ros.gpg"; \
+    curl -fsSL https://isaac.download.nvidia.com/isaac-ros/repos.key | gpg --dearmor | tee -a "$k" > /dev/null; \
+    f="/etc/apt/sources.list.d/nvidia-isaac-ros.list"; \
+    touch "$f"; \
+    s="deb [signed-by=$k] https://isaac.download.nvidia.com/isaac-ros/release-4.1 $(lsb_release -cs) main"; \
+    grep -qxF "$s" "$f" || echo "$s" | tee -a "$f"; \
+    apt-get update \
+    '
+
+# Set up CUDA apt repository
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    if [[ ${PLATFORM} == 'arm64' ]]; then \
+        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/sbsa/cuda-keyring_1.1-1_all.deb; \
+    elif [[ ${PLATFORM} == 'amd64' ]]; then \
+        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb; \
+    else \
+        echo "Invalid platform: ${PLATFORM}"; \
+        exit 1; \
+    fi && \
+    dpkg -i cuda-keyring_1.1-1_all.deb
+
+# Ensure CUDA, NVIDIA, and TensorRT binaries are available in PATH
+ENV PATH="/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/src/tensorrt/bin:${PATH}"
+
+# Set up Jetson apt repository
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    apt-key adv --fetch-key https://repo.download.nvidia.com/jetson/jetson-ota-public.asc && \
+    if [[ ${PLATFORM} == 'arm64' ]]; then \
+        echo 'deb http://repo.download.nvidia.com/jetson/common r38.2 main' > /etc/apt/sources.list.d/nvidia-jetson-apt-source.list; \
+    elif [[ ${PLATFORM} == 'amd64' ]]; then \
+        echo 'deb http://repo.download.nvidia.com/jetson/x86_64/noble r38.2 main' > /etc/apt/sources.list.d/nvidia-jetson-apt-source.list; \
+    else \
+        echo "Unrecognized platform: ${PLATFORM}" && exit 1 ; \
+    fi && \
+    apt-get update
+
+# Set up ROS apt repository
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/1.1.0/ros2-apt-source_1.1.0.noble_all.deb" \
+    && dpkg -i /tmp/ros2-apt-source.deb
+
+# Install ROS 2 base and tools
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+        ros-jazzy-ros-base \
+        python3-colcon-common-extensions \
+        python3-rosdep
+
+# Add ROS setup to bashrc
+RUN echo "source /opt/ros/jazzy/setup.bash" | sudo tee --append /etc/bash.bashrc
+
+# Colcon auto complete
+RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" | sudo tee --append /etc/bash.bashrc
+
+# Setup rosdep
+COPY docker/rosdep/extra_rosdeps.yaml /etc/ros/rosdep/sources.list.d/nvidia-isaac.yaml
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    rosdep init \
+    && echo "yaml file:///etc/ros/rosdep/sources.list.d/nvidia-isaac.yaml" | tee /etc/ros/rosdep/sources.list.d/00-nvidia-isaac.list \
+    && rosdep update
+
+# Install isaac-ros-cli
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y isaac-ros-cli
+
+# Override Isaac ROS CLI environment configuration
+COPY docker/patches/docker-environment.conf /etc/isaac-ros-cli/environment.conf
+
+# Specify non-root admin user for container
+ARG USERNAME=admin
+ENV USERNAME=${USERNAME}
+
+# Copy scripts
+RUN mkdir -p /usr/local/bin/scripts
+COPY docker/scripts/*entrypoint.sh /usr/local/bin/scripts/
+RUN chmod +x /usr/local/bin/scripts/*.sh || true
+
+# Copy script additions
+RUN mkdir -p /usr/local/bin/scripts/entrypoint_additions
+COPY docker/scripts/entrypoint_addition[s]/*.sh /usr/local/bin/scripts/entrypoint_additions/
+RUN chmod +x /usr/local/bin/scripts/entrypoint_additions/*.sh || true
+
+# Copy middleware profiles
+RUN mkdir -p /usr/local/share/middleware_profiles
+COPY docker/middleware_profile[s]/*profile.xml /usr/local/share/middleware_profiles/
+
+# Store list of packages (must be last)
+RUN mkdir -p /opt/nvidia/isaac_ros_dev_base && dpkg-query -W | sort > /opt/nvidia/isaac_ros_dev_base/base-end-packages.csv

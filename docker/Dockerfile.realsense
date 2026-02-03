@@ -11,23 +11,38 @@
 ARG BASE_IMAGE=ubuntu:24.04
 FROM ${BASE_IMAGE}
 
+ENV ROS_DISTRO=jazzy
+ENV ROS_ROOT=/opt/ros/${ROS_DISTRO}
+
 ARG LIBREALSENSE_SOURCE_VERSION=v2.56.3
-ARG REALSENSE_ROS_GIT_URL=https://github.com/IntelRealSense/realsense-ros.git
+ARG REALSENSE_ROS_GIT_URL=https://github.com/realsenseai/realsense-ros.git
 ARG REALSENSE_ROS_VERSION=r/4.56.3
+ARG LIBREALSENSE_BUILD_TOOL_OPTIONS=--force_rsusb
 
 COPY scripts/build-librealsense.sh /opt/realsense/build-librealsense.sh
 COPY scripts/install-realsense-dependencies.sh /opt/realsense/install-realsense-dependencies.sh
 
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    apt-get update && apt-get install -y cuda-toolkit-13-0
 RUN chmod +x /opt/realsense/install-realsense-dependencies.sh && \
     /opt/realsense/install-realsense-dependencies.sh
-RUN chmod +x /opt/realsense/build-librealsense.sh && /opt/realsense/build-librealsense.sh -v ${LIBREALSENSE_SOURCE_VERSION}
+RUN chmod +x /opt/realsense/build-librealsense.sh && /opt/realsense/build-librealsense.sh -v ${LIBREALSENSE_SOURCE_VERSION} ${LIBREALSENSE_BUILD_TOOL_OPTIONS}
 
-RUN --mount=type=cache,sharing=private,target=/var/cache/apt --mount=type=cache,sharing=private,target=/var/lib/apt/lists \
+RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,sharing=locked,target=/var/lib/apt/lists \
     mkdir -p ${ROS_ROOT}/src && cd ${ROS_ROOT}/src \
     && git clone --depth 1 ${REALSENSE_ROS_GIT_URL} -b ${REALSENSE_ROS_VERSION} 
 
 # Install realsense-ros ROS 2 package
-RUN cd ${ROS_ROOT}/src/realsense-ros && source ${ROS_ROOT}/setup.bash && cd ${ROS_ROOT}/src/realsense-ros/realsense2_camera_msgs && bloom-generate rosdebian && fakeroot debian/rules binary \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    devscripts \
+    dh-make \
+    python3-bloom
+
+RUN rosdep update && rosdep install -y --from-paths ${ROS_ROOT}/src/realsense-ros --skip-keys librealsense2 --ignore-src
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    cd ${ROS_ROOT}/src/realsense-ros && source ${ROS_ROOT}/setup.bash && cd ${ROS_ROOT}/src/realsense-ros/realsense2_camera_msgs && bloom-generate rosdebian && fakeroot debian/rules binary \
     && cd ../ && apt-get install -y ./*.deb && rm ./*.deb \
     && cd ${ROS_ROOT}/src/realsense-ros/realsense2_description && bloom-generate rosdebian && fakeroot debian/rules binary \
     && cd ../ && apt-get install -y ./*.deb && rm ./*.deb \

@@ -10,6 +10,7 @@ import subprocess
 import os
 
 from isaac_ros_cli.config_loader import load_config
+from isaac_ros_cli.platform import Platform
 
 RUN_DEV_SCRIPT = '/usr/lib/isaac-ros-cli/run_dev.py'
 
@@ -21,7 +22,8 @@ def _build_run_dev_command(
     push: bool,
     use_cached_build_image: bool,
     no_cache: bool,
-    verbose: bool
+    verbose: bool,
+    isaac_ros_platform: Platform
 ):
     cmd = [
         RUN_DEV_SCRIPT,
@@ -40,6 +42,9 @@ def _build_run_dev_command(
     if platform == 'auto':
         platform = os.uname().machine
     cmd.extend(["--platform", platform])
+
+    # Pass the Isaac ROS platform for setting inside the container (convert to string)
+    cmd.extend(["--isaac-ros-platform", str(isaac_ros_platform)])
 
     if "ISAAC_DIR" in os.environ:
         isaac_dir = os.environ['ISAAC_DIR']
@@ -66,6 +71,7 @@ def _build_run_dev_command(
 
 
 def activate_docker(
+    platform: Platform,
     build: bool,
     build_local: bool,
     push: bool,
@@ -75,8 +81,10 @@ def activate_docker(
 ):
     """Activate Docker-based Isaac ROS environment by delegating to run_dev.py."""
     cfg = load_config()
+
     cmd = _build_run_dev_command(
-        cfg, build, build_local, push, use_cached_build_image, no_cache, verbose)
+        cfg, build, build_local, push, use_cached_build_image, no_cache, verbose,
+        platform)
 
     # run run_dev.py
     subprocess.run(cmd, check=False)

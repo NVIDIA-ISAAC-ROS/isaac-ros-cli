@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 #
 # Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
 #
@@ -339,6 +339,12 @@ def run_docker_container(args, container_name, base_name, isaac_dir):
         "--workdir /workspaces/isaac_ros-dev",
     ]
 
+    # Pass ISAAC_ROS_PLATFORM if specified
+    if args.isaac_ros_platform:
+        docker_command_parts.append(
+            f"-e ISAAC_ROS_PLATFORM={shlex.quote(args.isaac_ros_platform)}"
+        )
+
     # Add Docker arguments as strings
     docker_command_parts.extend(docker_args)
 
@@ -378,7 +384,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", action="append", required=False,
                         default=None)  # Keep default=None so user-provided envs override defaults
-    DEFAULT_ENV_LIST = ["noble", "ros2_jazzy", "realsense"]
+    DEFAULT_ENV_LIST = ["noble", "ros2_jazzy", "ros_eng", "realsense"]
 
     parser.add_argument("--extra_env",
                         action="append",
@@ -435,6 +441,11 @@ def parse_args():
     parser.add_argument(
         "-d", "--isaac-dir",
         help="Specify the ISAAC directory path (overrides ISAAC_DIR environment variable)"
+    )
+    parser.add_argument(
+        "--isaac-ros-platform",
+        default=None,
+        help="Isaac ROS platform identifier (e.g., amd64, arm64)"
     )
     args = parser.parse_args()
 

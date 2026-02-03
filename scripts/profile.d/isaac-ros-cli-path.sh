@@ -1,3 +1,4 @@
+#!/bin/sh
 # Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
@@ -5,23 +6,6 @@
 # and any modifications thereto. Any use, reproduction, disclosure or
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
-
-"""Isaac ROS CLI package."""
-
-from .config_loader import (
-    ConfigScope,
-    load_environment_mode,
-    update_environment_mode,
-    load_config,
-    update_config,
-)
-from .cli import main
-
-__all__ = [
-    'ConfigScope',
-    'load_environment_mode',
-    'update_environment_mode',
-    'load_config',
-    'update_config',
-    'main',
-]
+#
+# Ensure CUDA, NVIDIA, and TensorRT binaries are available in PATH
+export PATH="/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/src/tensorrt/bin:${PATH}"

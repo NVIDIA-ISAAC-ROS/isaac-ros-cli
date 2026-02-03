@@ -13,6 +13,8 @@ from typing import Any, Dict, List, Mapping
 
 import yaml
 
+ENVIRONMENT_MODE_CONFIG_PATH = Path("/etc/isaac-ros-cli/environment.conf")
+
 
 class ConfigScope(Enum):
     # In order of precedence
@@ -37,6 +39,28 @@ _CONFIG_SOURCE_CANDIDATES: Dict[ConfigScope, Path] = {
         Path(os.getenv("ISAAC_ROS_WS", "")) / ".isaac-ros-cli" / "config.yaml"
     ) if os.getenv("ISAAC_ROS_WS") else None,
 }
+
+
+def load_environment_mode() -> str:
+    """Load the environment mode from the environment mode configuration file."""
+    if not ENVIRONMENT_MODE_CONFIG_PATH.exists():
+        raise FileNotFoundError(
+            f"Environment mode configuration file not found at {ENVIRONMENT_MODE_CONFIG_PATH}.")
+    with open(ENVIRONMENT_MODE_CONFIG_PATH, "r") as f:
+        for line in f:
+            key, _, value = line.strip().partition("=")
+            if key == "ISAAC_ROS_ENVIRONMENT":
+                return value
+    raise KeyError("ISAAC_ROS_ENVIRONMENT not found in environment mode configuration file.")
+
+
+def update_environment_mode(mode: str) -> None:
+    """Update the environment mode in the environment mode configuration file."""
+    if not ENVIRONMENT_MODE_CONFIG_PATH.exists():
+        raise FileNotFoundError(
+            f"Environment mode configuration file not found at {ENVIRONMENT_MODE_CONFIG_PATH}.")
+    with open(ENVIRONMENT_MODE_CONFIG_PATH, "w") as f:
+        f.write(f"ISAAC_ROS_ENVIRONMENT={mode}\n")
 
 
 def load_config() -> Dict[str, Any]:

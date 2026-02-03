@@ -1,5 +1,8 @@
 image_key_order:
-  - noble.ros2_jazzy.realsense.nova_carter
+  - isaac_ros.noble.ros2_jazzy.realsense.nova_carter
+context_overrides:
+  isaac_ros: ..
+  noble: ..
 cache_to_registry_names: []
 cache_from_registry_names:
   - nvcr.io/nvidia/isaac/ros

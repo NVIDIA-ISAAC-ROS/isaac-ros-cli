@@ -1353,6 +1353,9 @@ cuda_python:
     focal: [ros-humble-cuda-python-placeholder]
     jammy: [ros-humble-cuda-python-placeholder]
     noble: [ros-jazzy-cuda-python-placeholder]
+cuda-toolkit:
+  ubuntu:
+    noble: [cuda-toolkit-13-0]
 cudnn_cmake_module:
   ubuntu:
     focal: [ros-humble-cudnn-cmake-module]
@@ -1398,6 +1401,9 @@ cv_bridge_dbgsym:
     focal: [ros-humble-cv-bridge-dbgsym]
     jammy: [ros-humble-cv-bridge-dbgsym]
     noble: [ros-jazzy-cv-bridge-dbgsym]
+cvcuda0-dev:
+  ubuntu:
+    noble: [cvcuda0-dev]
 cyclonedds:
   ubuntu:
     focal: [ros-humble-cyclonedds]
@@ -1408,6 +1414,9 @@ cyclonedds_dbgsym:
     focal: [ros-humble-cyclonedds-dbgsym]
     jammy: [ros-humble-cyclonedds-dbgsym]
     noble: [ros-jazzy-cyclonedds-dbgsym]
+datacenter-gpu-manager:
+  ubuntu:
+    noble: [datacenter-gpu-manager-4-cuda13]
 dataspeed_can:
   ubuntu:
     focal: [ros-humble-dataspeed-can]
@@ -2348,6 +2357,9 @@ find_object_2d_dbgsym:
     focal: [ros-humble-find-object-2d-dbgsym]
     jammy: [ros-humble-find-object-2d-dbgsym]
     noble: [ros-jazzy-find-object-2d-dbgsym]
+flatbuffers:
+  ubuntu:
+    noble: [python3-flatbuffers]
 flexbe_behavior_engine:
   ubuntu:
     focal: [ros-humble-flexbe-behavior-engine]
@@ -3478,6 +3490,9 @@ irobot_create_toolbox_dbgsym:
     focal: [ros-humble-irobot-create-toolbox-dbgsym]
     jammy: [ros-humble-irobot-create-toolbox-dbgsym]
     noble: [ros-jazzy-irobot-create-toolbox-dbgsym]
+isaac-ros-cli:
+  ubuntu:
+    noble: [isaac-ros-cli]
 isaac_common:
   ubuntu:
     focal: [ros-humble-isaac-common]
@@ -3576,6 +3591,16 @@ isaac_ros_apriltag_interfaces:
     focal: [ros-humble-isaac-ros-apriltag-interfaces]
     jammy: [ros-humble-isaac-ros-apriltag-interfaces]
     noble: [ros-jazzy-isaac-ros-apriltag-interfaces]
+isaac_ros_argus_camera:
+  ubuntu:
+    focal: [ros-humble-isaac-ros-argus-camera]
+    jammy: [ros-humble-isaac-ros-argus-camera]
+    noble: [ros-jazzy-isaac-ros-argus-camera]
+isaac_ros_argus_camera_benchmark:
+  ubuntu:
+    focal: [ros-humble-isaac-ros-argus-camera-benchmark]
+    jammy: [ros-humble-isaac-ros-argus-camera-benchmark]
+    noble: [ros-jazzy-isaac-ros-argus-camera-benchmark]
 isaac_ros_benchmark:
   ubuntu:
     focal: [ros-humble-isaac-ros-benchmark]
@@ -3802,6 +3827,11 @@ isaac_ros_grounding_dino_models_install:
     focal: [ros-humble-isaac-ros-grounding-dino-models-install]
     jammy: [ros-humble-isaac-ros-grounding-dino-models-install]
     noble: [ros-jazzy-isaac-ros-grounding-dino-models-install]
+isaac_ros_ground_calibration:
+  ubuntu:
+    focal: [ros-humble-isaac-ros-ground-calibration]
+    jammy: [ros-humble-isaac-ros-ground-calibration]
+    noble: [ros-jazzy-isaac-ros-ground-calibration]
 isaac_ros_gxf:
   ubuntu:
     focal: [ros-humble-isaac-ros-gxf]
@@ -3937,6 +3967,11 @@ isaac_ros_mqtt_bridge:
     focal: [ros-humble-isaac-ros-mqtt-bridge]
     jammy: [ros-humble-isaac-ros-mqtt-bridge]
     noble: [ros-jazzy-isaac-ros-mqtt-bridge]
+isaac_ros_navigator:
+  ubuntu:
+    focal: [ros-humble-isaac-ros-navigator]
+    jammy: [ros-humble-isaac-ros-navigator]
+    noble: [ros-jazzy-isaac-ros-navigator]
 isaac_ros_nitros:
   ubuntu:
     focal: [ros-humble-isaac-ros-nitros]
@@ -4122,6 +4157,11 @@ isaac_ros_peoplesemseg_models_install:
     focal: [ros-humble-isaac-ros-peoplesemseg-models-install]
     jammy: [ros-humble-isaac-ros-peoplesemseg-models-install]
     noble: [ros-jazzy-isaac-ros-peoplesemseg-models-install]
+isaac_ros_perceptor_bringup:
+  ubuntu:
+    focal: [ros-humble-isaac-ros-perceptor-bringup]
+    jammy: [ros-humble-isaac-ros-perceptor-bringup]
+    noble: [ros-jazzy-isaac-ros-perceptor-bringup]
 isaac_ros_perceptor_nova_benchmark:
   ubuntu:
     focal: [ros-humble-isaac-ros-perceptor-nova-benchmark]
@@ -4353,6 +4393,9 @@ isaac_ros_visual_slam_interfaces:
     focal: [ros-humble-isaac-ros-visual-slam-interfaces]
     jammy: [ros-humble-isaac-ros-visual-slam-interfaces]
     noble: [ros-jazzy-isaac-ros-visual-slam-interfaces]
+isaac_ros_vpi_utils:
+  ubuntu:
+    noble: [ros-jazzy-isaac-ros-vpi-utils]
 isaac_ros_wifi_common:
   ubuntu:
     focal: [ros-humble-isaac-ros-wifi-common]
@@ -4833,6 +4876,9 @@ libcreate_dbgsym:
     focal: [ros-humble-libcreate-dbgsym]
     jammy: [ros-humble-libcreate-dbgsym]
     noble: [ros-jazzy-libcreate-dbgsym]
+libcudnn9-cuda-13:
+  ubuntu:
+    noble: [libcudnn9-cuda-13]
 libcurl_vendor:
   ubuntu:
     focal: [ros-humble-libcurl-vendor]
@@ -4848,6 +4894,9 @@ libg2o_dbgsym:
     focal: [ros-humble-libg2o-dbgsym]
     jammy: [ros-humble-libg2o-dbgsym]
     noble: [ros-jazzy-libg2o-dbgsym]
+libgnat-23:
+  ubuntu:
+    noble: [libgnat-23]
 libmavconn:
   ubuntu:
     focal: [ros-humble-libmavconn]
@@ -4863,6 +4912,57 @@ libnabo:
     focal: [ros-humble-libnabo]
     jammy: [ros-humble-libnabo]
     noble: [ros-jazzy-libnabo]
+libnvinfer-bin:
+  ubuntu:
+    noble: [libnvinfer-bin]
+libnvinfer-dev:
+  ubuntu:
+    noble: [libnvinfer-dev]
+libnvinfer-dispatch-dev:
+  ubuntu:
+    noble: [libnvinfer-dispatch-dev]
+libnvinfer-dispatch10:
+  ubuntu:
+    noble: [libnvinfer-dispatch10]
+libnvinfer-headers-dev:
+  ubuntu:
+    noble: [libnvinfer-headers-dev]
+libnvinfer-headers-plugin-dev:
+  ubuntu:
+    noble: [libnvinfer-headers-plugin-dev]
+libnvinfer-lean-dev:
+  ubuntu:
+    noble: [libnvinfer-lean-dev]
+libnvinfer-lean10:
+  ubuntu:
+    noble: [libnvinfer-lean10]
+libnvinfer-plugin-dev:
+  ubuntu:
+    noble: [libnvinfer-plugin-dev]
+libnvinfer-plugin10:
+  ubuntu:
+    noble: [libnvinfer-plugin10]
+libnvinfer-samples:
+  ubuntu:
+    noble: [libnvinfer-samples]
+libnvinfer-vc-plugin-dev:
+  ubuntu:
+    noble: [libnvinfer-vc-plugin-dev]
+libnvinfer-vc-plugin10:
+  ubuntu:
+    noble: [libnvinfer-vc-plugin10]
+libnvinfer10:
+  ubuntu:
+    noble: [libnvinfer10]
+libnvonnxparsers-dev:
+  ubuntu:
+    noble: [libnvonnxparsers-dev]
+libnvonnxparsers10:
+  ubuntu:
+    noble: [libnvonnxparsers10]
+libnvvpi4:
+  ubuntu:
+    noble: [libnvvpi4]
 libopenvdb:
   ubuntu:
     focal: [ros-humble-libopenvdb]
@@ -4913,6 +5013,9 @@ libstatistics_collector_dbgsym:
     focal: [ros-humble-libstatistics-collector-dbgsym]
     jammy: [ros-humble-libstatistics-collector-dbgsym]
     noble: [ros-jazzy-libstatistics-collector-dbgsym]
+libucx0:
+  ubuntu:
+    noble: [libucx0]
 libyaml_vendor:
   ubuntu:
     focal: [ros-humble-libyaml-vendor]
@@ -5168,6 +5271,9 @@ mavros_msgs_dbgsym:
     focal: [ros-humble-mavros-msgs-dbgsym]
     jammy: [ros-humble-mavros-msgs-dbgsym]
     noble: [ros-jazzy-mavros-msgs-dbgsym]
+mcap:
+  ubuntu:
+    noble: [python3-mcap]
 mcap_vendor:
   ubuntu:
     focal: [ros-humble-mcap-vendor]
@@ -6353,6 +6459,12 @@ nvblox_test_data:
     focal: [ros-humble-nvblox-test-data]
     jammy: [ros-humble-nvblox-test-data]
     noble: [ros-jazzy-nvblox-test-data]
+nvsci:
+  ubuntu:
+    noble: [nvsci]
+nvv4l2:
+  ubuntu:
+    noble: [nvv4l2]
 object_recognition_msgs:
   ubuntu:
     focal: [ros-humble-object-recognition-msgs]
@@ -7275,13 +7387,38 @@ python3-av-pip:
         packages: [av]
     jammy: *id001
     noble: *id001
-python3-gdown-pip:
+python3-av-pip-shim:
   ubuntu:
-    focal: &id002
-      pip:
-        packages: [gdown]
-    jammy: *id002
-    noble: *id002
+    noble: [python3-av-pip-shim]
+python3-cuda-python-pip-shim:
+  ubuntu:
+    noble: [python3-cuda-python-pip-shim]
+python3-gdown:
+  ubuntu:
+    focal: [python3-gdown]
+    jammy: [python3-gdown]
+    noble: [python3-gdown]
+python3-libnvinfer:
+  ubuntu:
+    noble: [python3-libnvinfer]
+python3-libnvinfer-dev:
+  ubuntu:
+    noble: [python3-libnvinfer-dev]
+python3-libnvinfer-dispatch:
+  ubuntu:
+    noble: [python3-libnvinfer-dispatch]
+python3-libnvinfer-lean:
+  ubuntu:
+    noble: [python3-libnvinfer-lean]
+python3-onnx-pip-shim:
+  ubuntu:
+    noble: [python3-onnx-pip-shim]
+python3-onnxscript-pip-shim:
+  ubuntu:
+    noble: [python3-onnxscript-pip-shim]
+python3-paho-mqtt-pip-shim:
+  ubuntu:
+    noble: [python3-paho-mqtt-pip-shim]
 python3-pydantic-pip:
   ubuntu:
     focal: &id003
@@ -7289,6 +7426,9 @@ python3-pydantic-pip:
         packages: [pydantic]
     jammy: *id003
     noble: *id003
+python3-pydantic-pip-shim:
+  ubuntu:
+    noble: [python3-pydantic-pip-shim]
 python3-pymupdf:
   ubuntu:
     focal: [python3-fitz]
@@ -7301,6 +7441,30 @@ python3-pytransform3d-pip:
         packages: [pytransform3d]
     jammy: *id004
     noble: *id004
+python3-pytransform3d-pip-shim:
+  ubuntu:
+    noble: [python3-pytransform3d-pip-shim]
+python3-rosbags-pip-shim:
+  ubuntu:
+    noble: [python3-rosbags-pip-shim]
+python3-setuptools-scm-pip-shim:
+  ubuntu:
+    noble: [python3-setuptools-scm-pip-shim]
+python3-torch-pip-shim:
+  ubuntu:
+    noble: [python3-torch-pip-shim]
+python3-transformers-pip-shim:
+  ubuntu:
+    noble: [python3-transformers-pip-shim]
+python3-trimesh-pip-shim:
+  ubuntu:
+    noble: [python3-trimesh-pip-shim]
+python3-warp-lang-pip-shim:
+  ubuntu:
+    noble: [python3-warp-lang-pip-shim]
+python3-yourdfpy-pip-shim:
+  ubuntu:
+    noble: [python3-yourdfpy-pip-shim]
 python_cmake_module:
   ubuntu:
     focal: [ros-humble-python-cmake-module]
@@ -7831,6 +7995,9 @@ realsense_splitter:
     focal: [ros-humble-realsense-splitter]
     jammy: [ros-humble-realsense-splitter]
     noble: [ros-jazzy-realsense-splitter]
+multi_realsense_emitter_synchronizer:
+  ubuntu:
+    noble: [ros-jazzy-multi-realsense-emitter-synchronizer]
 realtime_tools:
   ubuntu:
     focal: [ros-humble-realtime-tools]
@@ -10271,6 +10438,9 @@ teleop_twist_keyboard:
     focal: [ros-humble-teleop-twist-keyboard]
     jammy: [ros-humble-teleop-twist-keyboard]
     noble: [ros-jazzy-teleop-twist-keyboard]
+tensorrt:
+  ubuntu:
+    noble: [tensorrt]
 tensorrt_cmake_module:
   ubuntu:
     focal: [ros-humble-tensorrt-cmake-module]
@@ -10396,6 +10566,9 @@ theora_image_transport_dbgsym:
     focal: [ros-humble-theora-image-transport-dbgsym]
     jammy: [ros-humble-theora-image-transport-dbgsym]
     noble: [ros-jazzy-theora-image-transport-dbgsym]
+thor_devkit_realsense_rig_description:
+  ubuntu:
+    noble: [ros-jazzy-thor-devkit-realsense-rig-description]
 tiago_2dnav:
   ubuntu:
     focal: [ros-humble-tiago-2dnav]
@@ -10616,6 +10789,9 @@ tricycle_steering_controller_dbgsym:
     focal: [ros-humble-tricycle-steering-controller-dbgsym]
     jammy: [ros-humble-tricycle-steering-controller-dbgsym]
     noble: [ros-jazzy-tricycle-steering-controller-dbgsym]
+triton-server:
+  ubuntu:
+    noble: [triton-server]
 turbojpeg_compressed_image_transport:
   ubuntu:
     focal: [ros-humble-turbojpeg-compressed-image-transport]
@@ -11410,6 +11586,9 @@ vitis_common:
     focal: [ros-humble-vitis-common]
     jammy: [ros-humble-vitis-common]
     noble: [ros-jazzy-vitis-common]
+vpi4-dev:
+  ubuntu:
+    noble: [vpi4-dev]
 vrpn:
   ubuntu:
     focal: [ros-humble-vrpn]

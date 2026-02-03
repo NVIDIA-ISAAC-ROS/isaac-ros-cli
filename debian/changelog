@@ -1,3 +1,9 @@
+isaac-ros-cli (2.0.0-1) noble; urgency=low
+
+  * Support for venv and bare metal environments
+
+ -- Isaac ROS Maintainers <isaac-ros-maintainers@nvidia.com>  Mon, 2 Feb 2026 12:00:00 +0000
+
 isaac-ros-cli (1.0.2-1) noble; urgency=high
 
   * Fix local-only build behavior using `--build-local` flag
