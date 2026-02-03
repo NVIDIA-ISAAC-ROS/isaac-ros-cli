@@ -15,7 +15,7 @@ sudo apt-get install isaac-ros-cli
 isaac-ros --help
 
 # Initialize environment (pick a mode)
-sudo isaac-ros init docker
+sudo isaac-ros init <docker|venv|baremetal>
 
 # Activate environment
 isaac-ros activate

@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
@@ -11,12 +11,13 @@ import argparse
 import hashlib
 import os
 import platform
+import re
 import subprocess
 import tempfile
 import time
 import sys
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import termcolor
 import yaml
@@ -67,14 +68,32 @@ def run_shell(command: str,
     os_env = os.environ.copy()
     if env:
         os_env.update(env)
+    # Always run with check=False so we can surface stdout/stderr before raising.
     completed_process = subprocess.run(
         command,
         capture_output=capture_output,
         text=True,
-        check=check,
+        check=False,
         shell=True,
-        env=os_env
+        env=os_env,
     )
+    if check and completed_process.returncode != 0:
+        # When capture_output=True (default), Jenkins would otherwise show only the
+        # CalledProcessError without the real underlying stderr. Print both streams
+        # to make failures debuggable (e.g. `docker buildx create --driver kubernetes`).
+        if capture_output:
+            if completed_process.stdout:
+                termcolor.cprint("STDOUT:", "red", attrs=["bold"])
+                print(completed_process.stdout, flush=True)
+            if completed_process.stderr:
+                termcolor.cprint("STDERR:", "red", attrs=["bold"])
+                print(completed_process.stderr, flush=True)
+        raise subprocess.CalledProcessError(
+            completed_process.returncode,
+            completed_process.args,
+            output=completed_process.stdout,
+            stderr=completed_process.stderr,
+        )
     return (completed_process.returncode == 0,
             completed_process.stdout,
             completed_process.stderr)
@@ -124,6 +143,21 @@ def calculate_md5(filename):
     return hash_md5.hexdigest()
 
 
+def redact_bake_hcl(hcl_text: str) -> str:
+    """Redact inline AWS credentials from docker buildx bake HCL output."""
+    if not hcl_text:
+        return hcl_text
+    redactions = [
+        (r"(access_key_id=)([^\",]+)", r"\1***"),
+        (r"(secret_access_key=)([^\",]+)", r"\1***"),
+        (r"(session_token=)([^\",]+)", r"\1***"),
+    ]
+    redacted = hcl_text
+    for pattern, replacement in redactions:
+        redacted = re.sub(pattern, replacement, redacted)
+    return redacted
+
+
 # -----------------------------------------------------------------------------
 # Classes used in image building
 # -----------------------------------------------------------------------------
@@ -170,6 +204,8 @@ class Config:
         self.base_image_ = None
         self.context_dir_ = None
         self.common_config_file_ = None
+        self.context_overrides_ = {}
+        self.s3_cache_ = None
 
     def load_shell_common_config(self):
         """
@@ -267,6 +303,8 @@ class Config:
             'remote_builder',
             processor=lambda x: x[self.platform_] if x else None
         )
+        override_value('context_overrides')
+        override_value('s3_cache')
 
         return True
 
@@ -308,10 +346,9 @@ class ImageBuildPlan:
         subprocess.getoutput(f'rm -Rf {tmp_file}')
         subprocess.getoutput(f'touch {tmp_file}')
         for d in sorted(self.dockerfiles_, key=lambda x: x.image_key()):
-            os.chdir(d.context_dir_)
-            subprocess.getoutput(
-                f"md5sum {d.dockerfile_path_.name} >> {tmp_file}"
-            )
+            individual_hash = subprocess.getoutput(
+                f"md5sum {d.dockerfile_path_}").partition(' ')[0]
+            subprocess.getoutput(f"echo {individual_hash} >> {tmp_file}")
         hash_value = subprocess.getoutput(f"md5sum {tmp_file}").partition(' ')[0]
         return hash_value
 
@@ -338,7 +375,9 @@ class ImageBuildPlan:
         base_image=None,
         context_dir=None,
         extra_build_args=None,
-        nvcr_tag=False
+        nvcr_tag=False,
+        s3_cache_config=None,
+        use_kubernetes_driver=False
     ):
         """
         Generate a dictionary representing the docker buildx bake configuration.
@@ -350,9 +389,11 @@ class ImageBuildPlan:
         :param base_image: Optional base image override (applied to first target).
         :param context_dir: Optional context directory override for final target.
         :param extra_build_args: Dictionary of additional build args.
+        :param s3_cache_config: Dictionary containing s3 cache configuration.
+        :param use_kubernetes_driver: Boolean indicating if kubernetes driver is used.
         """
         build_plan = {}
-        nvcr_url = None  # Disabled for public release
+        nvcr_url = "nvcr.io/nvidian/isaac-ros/ros"
         dockerfile_list = self.dockerfiles_
         file_arch = 'arm64' if arch == 'aarch64' else 'amd64'
         platform = file_arch  # Use file_arch directly
@@ -364,6 +405,25 @@ class ImageBuildPlan:
         })
         build_plan['variables'] = variables
 
+        use_s3_cache = False
+        aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID', '')
+        aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY', '')
+        aws_session_token = os.getenv('AWS_SESSION_TOKEN', '')
+
+        # Only use S3 cache if:
+        # 1. Config is present
+        # 2. Using Kubernetes driver
+        # 3. AWS Credentials are present (Access Key + Secret Key)
+        if (
+            s3_cache_config
+            and use_kubernetes_driver
+            and aws_access_key_id
+            and aws_secret_access_key
+        ):
+            use_s3_cache = True
+        elif s3_cache_config and use_kubernetes_driver:
+            print("Warning: S3 cache configured but AWS credentials missing. Skipping S3 cache.")
+
         def get_target(dockerfiles: List[Dockerfile]):
             return ImageBuildPlan(dockerfiles).target_name()
 
@@ -374,43 +434,47 @@ class ImageBuildPlan:
             targets[target_name] = {'name': target_name}
             target_dict = targets[target_name]
             target_dict['context'] = str(target.context_dir_)
-            target_dict['dockerfile'] = target.dockerfile_path_.name
+            target_dict['dockerfile'] = target.dockerfile_path_
             target_dict['args'] = {'PLATFORM': file_arch}
+
+            if use_s3_cache:
+                bucket = s3_cache_config.get('bucket')
+                region = s3_cache_config.get('region')
+                # Use hashless target name + arch to allow reuse of layers across builds/commits
+                # while avoiding architecture collisions.
+                hashless_name = ImageBuildPlan(dockerfile_list[:i+1]).hashless_target_name()
+                cache_name = f"{hashless_name}-{file_arch}"
+
+                s3_opts = "type=s3"
+                s3_opts += f",region={region}"
+                s3_opts += f",bucket={bucket}"
+                s3_opts += f",name={cache_name}"
+                s3_opts += ",ignore-error=true"
+                s3_opts += f",access_key_id={aws_access_key_id}"
+                s3_opts += f",secret_access_key={aws_secret_access_key}"
+                if aws_session_token:
+                    s3_opts += f",session_token={aws_session_token}"
+
+                target_dict['cache-to'] = [f"{s3_opts},mode=max"]
+                target_dict['cache-from'] = [s3_opts]
+
             if i == 0:
                 # First target – set (if provided) BASE_IMAGE.
-                # Use different tag format for NVCR registries vs others
-                if cache_from_registry and "nvcr.io" in cache_from_registry:
-                    # For NVCR registries, use colon-separated tags (repository:tag)
-                    target_dict['tags'] = [
-                        f"{cache_from_registry}:{target_name}-{platform}"
-                    ]
-                else:
-                    # For other registries, use slash-separated paths (registry/image:tag)
-                    target_dict['tags'] = [
-                        f"{cache_from_registry}/{target_name}-{platform}:latest"
-                    ]
+                target_dict['tags'] = [
+                    f"{cache_from_registry}/{target_name}-{platform}:latest"
+                ]
                 if base_image is not None:
                     target_dict['args']['BASE_IMAGE'] = base_image
             else:
                 depends_name = ImageBuildPlan(dockerfile_list[:i]).target_name()
-                # Use different tag format for NVCR registries vs others
-                if cache_from_registry and "nvcr.io" in cache_from_registry:
-                    # For NVCR registries, use colon-separated tags (repository:tag)
-                    target_dict['tags'] = [
-                        f"{cache_from_registry}:{target_name}-{platform}"
-                    ]
-                    # Also update BASE_IMAGE reference to use correct format
-                    base_image_ref = f"{cache_from_registry}:{depends_name}-{platform}"
-                else:
-                    # For other registries, use slash-separated paths (registry/image:tag)
-                    target_dict['tags'] = [
-                        f"{cache_from_registry}/{target_name}-{platform}:latest"
-                    ]
-                    # Also update BASE_IMAGE reference to use correct format
-                    base_image_ref = f"{cache_from_registry}/{depends_name}-{platform}:latest"
+                target_dict['tags'] = [
+                    f"{cache_from_registry}/{target_name}-{platform}:latest"
+                ]
 
                 target_dict['args'].update({
-                    'BASE_IMAGE': base_image_ref
+                    'BASE_IMAGE': (
+                        f"{cache_from_registry}/{depends_name}-{platform}:latest"
+                    )
                 })
                 target_dict['depends_on'] = [f"{get_target(dockerfile_list[:i])}"]
             if nvcr_tag:
@@ -468,6 +532,8 @@ class ImageBuildPlan:
             write_target_attr('dockerfile')
             write_target_attr('dockerfile-inline')
             write_target_attr('tags', lambda x: quoted_list(x))
+            write_target_attr('cache-from', lambda x: quoted_list(x))
+            write_target_attr('cache-to', lambda x: quoted_list(x))
             write_target_attr('inherits', lambda x: quoted_list(x))
             if 'args' in target:
                 f.write('  args       = {\n')
@@ -484,6 +550,7 @@ class ImageBuildPlan:
 def resolve_dockerfiles(
     image_key: ImageKey,
     docker_search_dirs: List[str],
+    context_overrides: Dict[str, str] = {},
     ignore_composite_keys=False,
     verbose=False
 ):
@@ -504,9 +571,14 @@ def resolve_dockerfiles(
                 if verbose:
                     print(f"Checking {dockerfile}")
                 if dockerfile.is_file():
+                    context_dir = Path(docker_search_dir) / \
+                        context_overrides.get(layer_image_suffix, "")
                     dockerfiles.append(
-                        Dockerfile(dockerfile, Path(docker_search_dir),
-                                   ImageKey(layer_image_ids))
+                        Dockerfile(
+                            dockerfile.absolute(),
+                            context_dir,
+                            ImageKey(layer_image_ids)
+                        )
                     )
                     image_ids = image_ids[i+1:]
                     if verbose:
@@ -584,7 +656,11 @@ def get_image_name(cache_from_registry_name, env_list, file_arch, include_hash=F
     config.load_shell_common_config()
     # Create ImageBuildPlan to get the hash
     image_key = ImageKey.from_key_set(env_list, key_order=config.image_key_order_)
-    build_plan = resolve_dockerfiles(image_key, config.docker_search_dirs_)
+    build_plan = resolve_dockerfiles(
+        image_key,
+        config.docker_search_dirs_,
+        context_overrides=config.context_overrides_
+    )
 
     if include_hash:
         if build_plan:
@@ -620,17 +696,18 @@ def main(image_key_set: List[str],
          nvcr_tag: bool = False,
          skip_registry_check: bool = False,
          build_local: bool = False,
-         push: bool = False):
+         push: bool = False,
+         use_kubernetes_driver: bool = False):
 
     platform_ = platform_ if platform_ else platform.uname().machine
 
     config = Config(platform_=platform_)
     config.verbose_ = verbose
     config.load_shell_common_config()
+    config.context_dir_ = context_dir
     config.load_yaml(config_file)
     config.target_image_name_ = target_image_name
     config.base_image_ = base_image
-    config.context_dir_ = context_dir
 
     # If a context directory is provided, add it to the beginning of the docker search directories.
     if config.context_dir_:
@@ -646,7 +723,12 @@ def main(image_key_set: List[str],
     print(config.__dict__)
     image_key = ImageKey.from_key_set(image_key_set, key_order=config.image_key_order_)
     print(f'Image key = {image_key}')
-    build_plan = resolve_dockerfiles(image_key, config.docker_search_dirs_, verbose=verbose)
+    build_plan = resolve_dockerfiles(
+        image_key,
+        config.docker_search_dirs_,
+        context_overrides=config.context_overrides_,
+        verbose=verbose
+    )
     if not build_plan:
         print("Error: Could not resolve all Dockerfiles.")
         exit(1)
@@ -672,10 +754,12 @@ def main(image_key_set: List[str],
         base_image=config.base_image_,
         context_dir=config.context_dir_,
         extra_build_args=config.build_args_,
-        nvcr_tag=nvcr_tag
+        nvcr_tag=nvcr_tag,
+        s3_cache_config=config.s3_cache_,
+        use_kubernetes_driver=use_kubernetes_driver
     )
     docker_bake = ImageBuildPlan.as_hcl_str(docker_bake_dict)
-    print(docker_bake)
+    print(redact_bake_hcl(docker_bake))
 
     build_target_names = []
     for target_name in build_plan.target_names():
@@ -696,66 +780,106 @@ def main(image_key_set: List[str],
         with open(bake_filepath, mode='wt') as f:
             f.write(docker_bake)
         env_dict = {'BUILDX_BAKE_ENTITLEMENTS_FS': '0'}
-        builder_name = f'isaaceks-{config.platform_}'
+
+        # Make builder name unique for parallel/repeated builds if using Kubernetes driver.
+        # Otherwise buildx can fail with:
+        #   "existing instance for <name> but no append mode ..."
+        if use_kubernetes_driver:
+            import random
+            import string
+            random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+            builder_name = f'isaaceks-{config.platform_}-{random_suffix}'
+        else:
+            builder_name = f'isaaceks-{config.platform_}'
         no_cache_flag = '--no-cache' if no_cache else ''
         debug_flag = '--debug' if verbose else ''
 
-        if not build_local and config.remote_builder_:
-            run_shell(
-                f'docker buildx create --driver remote --name {builder_name} '
-                f'{config.remote_builder_}',
-                verbose=True,
-                env=env_dict
-            )
-        else:
-            if not build_local and not config.remote_builder_:
-                countdown_warning(
-                    "Remote build specification not found in config file.",
-                    seconds=5
+        try:
+            if not build_local and use_kubernetes_driver:
+                # Use Kubernetes driver - deploys BuildKit pods on-demand in cluster
+                print("Using Kubernetes driver (bypasses NLB, fixes EOF errors)")
+                k8s_arch = "amd64" if config.platform_ in ["x86_64", "amd64"] else "arm64"
+                run_shell(
+                    f'docker buildx create --driver kubernetes --name {builder_name} '
+                    f'--driver-opt namespace=docker-builder '
+                    f'--driver-opt nodeselector=kubernetes.io/arch={k8s_arch} '
+                    f'--driver-opt requests.cpu=4 '
+                    f'--driver-opt requests.memory=12Gi '
+                    f'--driver-opt requests.ephemeral-storage=64Gi '
+                    f'--driver-opt limits.cpu=7500m '
+                    f'--driver-opt limits.memory=24Gi '
+                    f'--driver-opt limits.ephemeral-storage=128Gi '
+                    f'--driver-opt timeout=5m '
+                    f'--driver-opt "annotations=janitor/ttl=6h" '
+                    f'--buildkitd-flags "--oci-worker-snapshotter=native" '
+                    f'--bootstrap',
+                    verbose=True,
+                    env=env_dict,
+                    check=True
                 )
-            run_shell(
-                f'docker buildx create --name {builder_name}',
-                verbose=True,
-                env=env_dict
-            )
-
-        progress_flag = "--progress=plain"
-
-        for target_name in build_target_names:
-            try:
-                print(f"Building image {target_name}")
-
-                build_cmd = (
-                    f'docker {debug_flag} buildx bake {target_name} '
-                    f'{no_cache_flag} {progress_flag} '
-                    f'--builder {builder_name if push else "default"} '
-                    f'--provenance=false '
-                    f'{"--push" if push else "--load"} '
-                    f'--file {bake_filepath}'
+            elif not build_local and config.remote_builder_:
+                run_shell(
+                    f'docker buildx create --driver remote --name {builder_name} '
+                    f'{config.remote_builder_}',
+                    verbose=True,
+                    env=env_dict
                 )
-                run_shell(build_cmd, capture_output=False, env=env_dict, check=True)
-            except subprocess.CalledProcessError as e:
-                run_shell(f'docker buildx rm {builder_name}', verbose=True, env=env_dict)
-                raise e
-
-        if config.target_image_name_:
-            try:
-                print(f"Building image {config.target_image_name_}")
-
-                final_cmd = (
-                    f'docker {debug_flag} buildx bake final_target '
-                    f'{no_cache_flag} {progress_flag} '
-                    f'--builder {builder_name if push else "default"} '
-                    f'--provenance=false '
-                    f'{"--push" if push else "--load"} '
-                    f'--file {bake_filepath}'
+            else:
+                if not build_local and not config.remote_builder_:
+                    countdown_warning(
+                        "Remote build specification not found in config file.",
+                        seconds=5
+                    )
+                run_shell(
+                    f'docker buildx create --name {builder_name}',
+                    verbose=True,
+                    env=env_dict
                 )
-                run_shell(final_cmd, capture_output=False, env=env_dict, check=True)
-            except subprocess.CalledProcessError as e:
-                run_shell(f'docker buildx rm {builder_name}', verbose=True, env=env_dict)
-                raise e
 
-        run_shell(f'docker buildx rm {builder_name}', verbose=True, env=env_dict)
+            progress_flag = "--progress=plain"
+
+            for target_name in build_target_names:
+                try:
+                    print(f"Building image {target_name}")
+
+                    # Set platform for multi-arch builds
+                    if use_kubernetes_driver:
+                        platform_str = config.platform_.replace("x86_64", "amd64") \
+                                                       .replace("aarch64", "arm64")
+                        platform_flag = f'--set *.platform=linux/{platform_str}'
+                    else:
+                        platform_flag = ''
+
+                    build_cmd = (
+                        f'docker {debug_flag} buildx bake {target_name} '
+                        f'{no_cache_flag} {progress_flag} {platform_flag} '
+                        f'--builder {builder_name if push else "default"} '
+                        f'--provenance=false '
+                        f'{"--push" if push else "--load"} '
+                        f'--file {bake_filepath}'
+                    )
+                    run_shell(build_cmd, capture_output=False, env=env_dict, check=True)
+                except subprocess.CalledProcessError as e:
+                    raise e
+
+            if config.target_image_name_:
+                try:
+                    print(f"Building image {config.target_image_name_}")
+
+                    final_cmd = (
+                        f'docker {debug_flag} buildx bake final_target '
+                        f'{no_cache_flag} {progress_flag} '
+                        f'--builder {builder_name if push else "default"} '
+                        f'--provenance=false '
+                        f'{"--push" if push else "--load"} '
+                        f'--file {bake_filepath}'
+                    )
+                    run_shell(final_cmd, capture_output=False, env=env_dict, check=True)
+                except subprocess.CalledProcessError as e:
+                    raise e
+
+        finally:
+            run_shell(f'docker buildx rm {builder_name}', verbose=True, env=env_dict, check=False)
 
 
 if __name__ == "__main__":
@@ -859,6 +983,13 @@ if __name__ == "__main__":
         help="Push the image to the target registry when complete.",
         default=False
     )
+    parser.add_argument(
+        '--kubernetes',
+        action="store_true",
+        dest="use_kubernetes_driver",
+        help="Use Kubernetes driver (deploy BuildKit pods on-demand, bypasses NLB).",
+        default=False
+    )
 
     args = parser.parse_args()
 
@@ -883,5 +1014,6 @@ if __name__ == "__main__":
         platform_=args.platform,
         nvcr_tag=args.nvcr,
         skip_registry_check=args.skip_registry_check,
-        build_local=args.build_local
+        build_local=args.build_local,
+        use_kubernetes_driver=args.use_kubernetes_driver
     )

@@ -39,6 +39,11 @@ adduser ${USERNAME} video >/dev/null
 adduser ${USERNAME} plugdev >/dev/null
 adduser ${USERNAME} sudo  >/dev/null
 
+# Ensure ZED SDK files are owned by the workspace user (if installed at build)
+if [ -d /usr/local/zed ]; then
+  chown -R ${USERNAME}:${USERNAME} /usr/local/zed
+fi
+
 # If jtop present, give the user access
 if [ -S /run/jtop.sock ]; then
   JETSON_STATS_GID="$(stat -c %g /run/jtop.sock)"
@@ -57,8 +62,5 @@ for addition in /usr/local/bin/scripts/entrypoint_additions/*.sh; do
     source ${addition}
   fi
 done
-
-# Restart udev daemon
-service udev restart
 
 exec gosu ${USERNAME} "$@"

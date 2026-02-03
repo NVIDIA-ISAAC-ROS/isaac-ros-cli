@@ -89,13 +89,13 @@ ENV PYTHONWARNINGS=ignore:::setuptools.command.install,ignore:::setuptools.comma
 RUN echo "Warning: Using the PYTHONWARNINGS environment variable to silence setup.py and easy_install deprecation warnings caused by colcon"
 
 # Add ROS 2 apt repository
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && echo 'Key updated at $(date)' \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(source /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null \
     && apt-get update
 
 # ROS fundamentals
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y \
     devscripts \
     dh-make \
@@ -121,7 +121,7 @@ RUN python3 -m pip install --break-system-packages -U \
     transformers
 
 # Install ROS 2 Jazzy
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y \
     ros-jazzy-ros-base \
     ros-jazzy-angles \
@@ -189,7 +189,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
 # Setup rosdep
 # At least one rosdep is hit by the distutils deprecation
 COPY rosdep/extra_rosdeps.yaml /etc/ros/rosdep/sources.list.d/nvidia-isaac.yaml
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     git clone --depth=1 https://github.com/ros/rosdistro.git /etc/ros/rosdep/rosdep-yamls/master \
     && rosdep init \
     && echo "yaml file:///etc/ros/rosdep/sources.list.d/nvidia-isaac.yaml" | tee /etc/ros/rosdep/sources.list.d/00-nvidia-isaac.list \
@@ -201,7 +201,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
 
 # Install negotiated from source
 # Looks like negotiated is also hit by the distutils deprecation
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     mkdir -p ${ROS_ROOT}/src && cd ${ROS_ROOT}/src \
     && git clone https://github.com/osrf/negotiated && cd negotiated && git checkout master \
     && source ${ROS_ROOT}/setup.bash \
@@ -220,7 +220,7 @@ RUN python3 -m pip install --break-system-packages \
 
 # Install fake cuda-python Debian package to satisfy apt install check
 COPY rosdep/ros-jazzy-cuda-python-placeholder /tmp/ros-jazzy-cuda-python-placeholder
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     cd /tmp && source ${ROS_ROOT}/setup.bash \
     # Makes us robust to different default docker-wide permissions settings
     && chmod -R 755 ros-jazzy-cuda-python-placeholder \

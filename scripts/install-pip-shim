@@ -1,0 +1,78 @@
+#!/bin/bash
+# Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto. Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+
+# Isaac ROS Pip Shim Installation script
+# This script handles pip installations for Isaac ROS-packaged shims,
+# using the Isaac ROS virtual environment when available.
+
+set -e
+
+# Check if at least one argument is provided
+if [ $# -lt 1 ]; then
+    echo "Error: No pip shim package specification provided" >&2
+    exit 1
+fi
+
+PACKAGE_SPEC="$1"
+shift
+EXTRA_PIP_ARGS="$@"
+
+CONSTRAINT_FILE="/usr/share/isaac-ros-cli/pip_shim_constraints.txt"
+if [ -f "$CONSTRAINT_FILE" ]; then
+    EXTRA_PIP_ARGS="$EXTRA_PIP_ARGS --constraint $CONSTRAINT_FILE"
+else
+    echo "No constraint file found at $CONSTRAINT_FILE!" >&2
+    exit 1
+fi
+
+ISAAC_ROS_ENVIRONMENT=""
+
+# Load environment configuration
+ENVIRONMENT_CONFIG_FILE="/etc/isaac-ros-cli/environment.conf"
+if [ -f "$ENVIRONMENT_CONFIG_FILE" ]; then
+    source "$ENVIRONMENT_CONFIG_FILE"
+else
+    echo "No environment configuration file found at $ENVIRONMENT_CONFIG_FILE!" >&2
+    exit 1
+fi
+
+case "$ISAAC_ROS_ENVIRONMENT" in
+    uninitialized)
+        echo "Error: Isaac ROS environment configuration is not set!" >&2
+        echo "Please install 'isaac-ros-cli' and run 'sudo isaac-ros init <environment>' first." >&2
+        exit 1
+        ;;
+    docker)
+        echo "Error: Isaac ROS environment configuration is set to Docker, but this installation appears to be running on the host." >&2
+        exit 1
+        ;;
+    venv)
+        ISAAC_ROS_VENV_PATH="/var/lib/isaac-ros-cli/isaac-ros"
+        ISAAC_ROS_GROUP="isaac-ros-cli"
+        echo "Using Isaac ROS virtual environment at $ISAAC_ROS_VENV_PATH (ISAAC_ROS_ENVIRONMENT=$ISAAC_ROS_ENVIRONMENT)"
+        umask 002
+        PIP_CMD="runuser --group $ISAAC_ROS_GROUP -u root -- $ISAAC_ROS_VENV_PATH/bin/pip3"
+        ;;
+    docker-activated|baremetal)
+        echo "Using system pip3 (ISAAC_ROS_ENVIRONMENT=$ISAAC_ROS_ENVIRONMENT)"
+        PIP_CMD="pip3"
+        # Allow pip install in system environments
+        EXTRA_PIP_ARGS="--break-system-packages --ignore-installed $EXTRA_PIP_ARGS"
+        ;;
+    *)
+        echo "Error: Invalid Isaac ROS environment configuration: $ISAAC_ROS_ENVIRONMENT" >&2
+        exit 1
+        ;;
+esac
+
+# Execute the pip installation
+echo "Running: $PIP_CMD install $EXTRA_PIP_ARGS $PACKAGE_SPEC"
+$PIP_CMD install $EXTRA_PIP_ARGS "$PACKAGE_SPEC"
+
+echo "Successfully installed $PACKAGE_SPEC"

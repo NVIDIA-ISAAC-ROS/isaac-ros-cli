@@ -1,0 +1,45 @@
+#!/bin/bash
+# Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto. Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+
+set -e
+
+case "$1" in
+    remove)
+        echo "Removing Isaac ROS virtual environment..."
+        
+        VENV_PATH="/var/lib/isaac-ros-cli/isaac-ros"
+        if [ -d "$VENV_PATH" ]; then
+            rm -rf "$VENV_PATH"
+            echo "Isaac ROS virtual environment removed from $VENV_PATH"
+        fi
+        
+        # Remove the parent directory if it's empty
+        PARENT_DIR="/var/lib/isaac-ros-cli"
+        if [ -d "$PARENT_DIR" ] && [ -z "$(ls -A "$PARENT_DIR")" ]; then
+            rmdir "$PARENT_DIR"
+            echo "Removed empty directory $PARENT_DIR"
+        fi
+        ;;
+        
+    upgrade|deconfigure)
+        # Don't remove venv on upgrade, only on actual removal
+        ;;
+        
+    failed-upgrade)
+        ;;
+        
+    *)
+        echo "prerm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

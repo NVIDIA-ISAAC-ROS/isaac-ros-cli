@@ -1,0 +1,43 @@
+#!/bin/bash
+# Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto. Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+
+# Isaac ROS Pip Shim Readiness Validation Script
+# This script checks that the Isaac ROS environment is ready for pip shim installations.
+
+set -e
+
+ISAAC_ROS_ENVIRONMENT=""
+
+# Load environment configuration
+if [ -f /etc/isaac-ros-cli/environment.conf ]; then
+    source /etc/isaac-ros-cli/environment.conf
+else
+    echo "No environment configuration file found!" >&2
+    exit 1
+fi
+
+case "$ISAAC_ROS_ENVIRONMENT" in
+    uninitialized)
+        echo "Error: Isaac ROS environment configuration is not set!" >&2
+        echo "Please install 'isaac-ros-cli' and run 'sudo isaac-ros init <environment>' first." >&2
+        exit 1
+        ;;
+    docker)
+        echo "Error: Isaac ROS environment configuration is set to Docker, but this installation appears to be running on the host." >&2
+        exit 1
+        ;;
+    venv|docker-activated|baremetal)
+        # Valid environment settings
+        exit 0
+        ;;
+    *)
+        echo "Error: Invalid Isaac ROS environment configuration: $ISAAC_ROS_ENVIRONMENT" >&2
+        exit 1
+        ;;
+esac

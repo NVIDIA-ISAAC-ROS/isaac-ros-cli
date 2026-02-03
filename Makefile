@@ -10,10 +10,6 @@
 
 PACKAGE_NAME := isaac-ros-cli
 
-DISTRIBUTION ?= noble
-COMPONENT ?= main
-ARCHITECTURE ?= all
-
 # Convenience variable for the built .deb (lives one dir up when using dpkg-buildpackage)
 DEB_GLOB := ../$(PACKAGE_NAME)_*.deb
 
@@ -22,19 +18,32 @@ DEB_GLOB := ../$(PACKAGE_NAME)_*.deb
 help:
 	@echo "Targets:"
 	@echo "  make build           - Build Debian package (.deb)"
+	@echo "  make build-stamped   - Build Debian package (.deb) with timestamped version"
+	@echo "  make timestamp       - Append timestamp suffix to debian/changelog"
 	@echo "  make clean           - Remove staged packaging artifacts inside debian/"
 	@echo "  make distclean       - Clean and remove built files in parent dir"
 	@echo "  make print-deb       - Print the path to the built .deb (expects exactly one)"
 	@echo ""
-	@echo "Variables (override with VAR=value):"
-	@echo "  DISTRIBUTION=$(DISTRIBUTION)  COMPONENT=$(COMPONENT)  ARCHITECTURE=$(ARCHITECTURE)"
 
 all: build
+
+timestamp:
+	@set -e; \
+	timestamp=$$(date +%Y%m%d%H%M%S); \
+	sed -i "1s/)/.$$timestamp)/" debian/changelog; \
+	echo "Updated debian version with timestamp suffix .$$timestamp"; \
+	head -1 debian/changelog
 
 build:
 	@echo "Building Debian package for $(PACKAGE_NAME)..."
 	DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -us -uc -b
 	@echo "Build complete. Use 'make print-deb' to locate the .deb file."
+
+build-stamped:
+	cp debian/changelog debian/changelog.original
+	make timestamp
+	make build
+	mv debian/changelog.original debian/changelog
 
 print-deb:
 	@set -e; \
@@ -47,7 +56,7 @@ print-deb:
 
 clean:
 	@echo "Removing staged packaging artifacts under debian/..."
-	rm -rf debian/$(PACKAGE_NAME) debian/.debhelper debian/debhelper-build-stamp debian/files
+	rm -rf debian/$(PACKAGE_NAME) debian/*.debhelper debian/*.substvars debian/debhelper-build-stamp debian/files
 
 distclean: clean
 	@echo "Removing built artifacts in parent directory (if any)..."

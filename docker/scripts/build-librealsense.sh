@@ -33,8 +33,9 @@ NVCC_PATH=/usr/local/cuda/bin/nvcc
 
 function usage ()
 {
-    echo "Usage: ./build-librealsense.sh [-n | -no_cuda] [-v | -version <version>] [-j | --jobs <number of jobs>] [-h | --help] "
-    echo "-n  | --no_cuda   Build with no CUDA (Defaults to with CUDA)"
+    echo "Usage: ./build-librealsense.sh [-n | --no_cuda] [-u | --force_rsusb] [-v | --version <version>] [-j | --jobs <number of jobs>] [-h | --help] "
+    echo "-n  | --no_cuda   Build without CUDA (Defaults to with CUDA)"
+    echo "-u  | --force_rsusb   Build to force using RSUSB backend instead of V4L native backend."
     echo "-v  | --version   Version of librealsense to build 
                       (defaults to latest release)"
     echo "-j  | --jobs      Number of concurrent jobs (Default 1 on <= 4GB RAM
@@ -43,7 +44,7 @@ function usage ()
     exit 2
 }
 
-PARSED_ARGUMENTS=$(getopt -a -n build-librealsense.sh -o nv:j:h --longoptions version:,no_cuda,jobs:,help -- "$@" )
+PARSED_ARGUMENTS=$(getopt -a -n build-librealsense.sh -o nuv:j:h --longoptions version:,no_cuda,force_rsusb,jobs:,help -- "$@" )
 VALID_ARGUMENTS=$?
 
 if [ "$VALID_ARGUMENTS" != "0" ]; then
@@ -56,12 +57,17 @@ eval set -- "$PARSED_ARGUMENTS"
 LIBREALSENSE_VERSION=""
 USE_CUDA=true
 NUM_PROCS=""
+FORCE_RSUSB=false
+# Default to building with V4L native backend is the recommended and validated variant of librealsense by RealSense team.
+# This driver backend was more stable than the RSUSB backend in our testing but requires kernel patches to be applied to
+# the host machine.
 
 while :
 do
    case "$1" in
       -n | --no_cuda)       USE_CUDA=false   ; shift ;;
       -v | --version )      LIBREALSENSE_VERSION="$2" ; shift 2 ;;
+      -u | --force_rsusb)   FORCE_RSUSB=true ; shift ;;
       -j | --jobs)          NUM_PROCS="$2" ; 
                             shift 2 ;
                             re_isanum='^[0-9]+$'
@@ -87,7 +93,7 @@ done
 # From lukechilds gist discussion: https://gist.github.com/lukechilds/a83e1d7127b78fef38c2914c4ececc3c 
 # We use wget instead of curl here
 # Sample usage:
-#   VERSION_STRINGS=$(get_latest_release IntelRealSense/librealsense)
+#   VERSION_STRINGS=$(get_latest_release realsenseai/librealsense)
 
 function get_latest_release () {
   # redirect wget to standard out and grep out the tag_name
@@ -97,7 +103,7 @@ function get_latest_release () {
 
 if [[ $LIBREALSENSE_VERSION == "" ]] ; then
    echo "Getting latest librealsense version number"
-   LIBREALSENSE_VERSION=$(get_latest_release IntelRealSense/librealsense)
+   LIBREALSENSE_VERSION=$(get_latest_release realsenseai/librealsense)
 fi
 
 echo "Build with CUDA: "$USE_CUDA
@@ -112,7 +118,7 @@ if [ ! -d "$LIBREALSENSE_DIRECTORY" ] ; then
   # clone librealsense
   cd ${HOME}
   echo "${green}Cloning librealsense${reset}"
-  git clone --depth 1 https://github.com/IntelRealSense/librealsense.git -b $LIBREALSENSE_VERSION
+  git clone --depth 1 https://github.com/realsenseai/librealsense.git -b $LIBREALSENSE_VERSION
 fi
 
 # Is the version of librealsense current enough?
@@ -141,7 +147,7 @@ export CUDACXX=$NVCC_PATH
 export PATH=${PATH}:/usr/local/cuda/bin
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/cuda/lib64
 
-/usr/bin/cmake ../ -DBUILD_EXAMPLES=true -DFORCE_RSUSB_BACKEND=true -DBUILD_WITH_CUDA="$USE_CUDA" -DCMAKE_BUILD_TYPE=release -DBUILD_PYTHON_BINDINGS=bool:true
+/usr/bin/cmake ../ -DBUILD_EXAMPLES=true -DFORCE_RSUSB_BACKEND="$FORCE_RSUSB" -DBUILD_WITH_CUDA="$USE_CUDA" -DCMAKE_BUILD_TYPE=release -DBUILD_PYTHON_BINDINGS=bool:true
 
 # The library will be installed in /usr/local/lib, header files in /usr/local/include
 # The demos, tutorials and tests will located in /usr/local/bin.

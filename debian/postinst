@@ -1,0 +1,63 @@
+#!/bin/bash
+# Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto. Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+
+set -e
+
+case "$1" in
+    configure)
+        echo "Creating Isaac ROS virtual environment..."
+
+        # Check if python3 is available
+        if ! command -v python3 >/dev/null 2>&1; then
+            echo "Error: python3 is not available. Please install python3." >&2
+            exit 1
+        fi
+
+        # Check if python3-venv is available
+        if ! python3 -m venv --help >/dev/null 2>&1; then
+            echo "Error: python3-venv is not available. Please install python3-venv." >&2
+            exit 1
+        fi
+
+        # Create the group that owns the virtual environment
+        GROUP_NAME="isaac-ros-cli"
+        if ! getent group "${GROUP_NAME}" >/dev/null 2>&1; then
+            addgroup --system "${GROUP_NAME}"
+            echo "Created system group '${GROUP_NAME}'"
+        else
+            echo "System group '${GROUP_NAME}' already exists"
+        fi
+
+        # Create the virtual environment with read-only access to system site-packages
+        VENV_PATH="/var/lib/isaac-ros-cli/isaac-ros"
+        if [ ! -d "$VENV_PATH" ]; then
+            python3 -m venv --system-site-packages "$VENV_PATH"
+            echo "Isaac ROS virtual environment created at $VENV_PATH"
+        else
+            echo "Isaac ROS virtual environment already exists at $VENV_PATH"
+        fi
+
+        # Ensure virtual environment is always owned by the group
+        chown -R root:"${GROUP_NAME}" /var/lib/isaac-ros-cli/
+        chmod -R g+rwX /var/lib/isaac-ros-cli/
+        find /var/lib/isaac-ros-cli/ -type d -exec chmod g+s {} \;
+        ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

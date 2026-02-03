@@ -1,13 +1,9 @@
-version: 1
-
-environment:
-  mode: uninitialized
+version: 2
 
 docker:
   image:
-    base_image_keys: 
-      - noble
-      - ros2_jazzy
+    base_image_keys:
+      - isaac_ros
     additional_image_keys: []
 
   run:
