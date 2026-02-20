@@ -10,6 +10,7 @@
 
 import os
 from enum import Enum
+from pathlib import Path
 
 
 class Platform(Enum):
@@ -23,8 +24,11 @@ class Platform(Enum):
     AMD64 = "amd64"
     """x86_64 systems with NVIDIA dGPU"""
 
-    ARM64 = "arm64"
+    ARM64_JETPACK = "arm64-jetpack"
     """Jetson devices running JetPack"""
+
+    ARM64_FASTOS = "arm64-fastos"
+    """DGX Spark devices running FastOS"""
 
     def __str__(self) -> str:
         """Return the string value for external interfaces."""
@@ -39,13 +43,22 @@ def detect_platform() -> Platform:
         Platform: The detected platform enum value.
 
     Raises:
-        RuntimeError: If the architecture is not supported.
+        RuntimeError: If the architecture is not supported or if the platform is not detected.
     """
     machine = os.uname().machine
 
     if machine == "x86_64":
         return Platform.AMD64
     elif machine == "aarch64":
-        return Platform.ARM64
+        # Distinguish between Jetson (JetPack) and DGX Spark (FastOS)
+        if Path("/etc/fastos-release").exists():
+            return Platform.ARM64_FASTOS
+        elif Path("/etc/nv_tegra_release").exists():
+            return Platform.ARM64_JETPACK
+        else:
+            raise RuntimeError(
+                "Unknown ARM64 platform: expected /etc/fastos-release (DGX Spark) "
+                "or /etc/nv_tegra_release (Jetson) but neither was found."
+            )
     else:
         raise RuntimeError(f"Unsupported architecture: {machine}")

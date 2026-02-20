@@ -1607,6 +1607,9 @@ dbw_polaris_msgs_dbgsym:
     focal: [ros-humble-dbw-polaris-msgs-dbgsym]
     jammy: [ros-humble-dbw-polaris-msgs-dbgsym]
     noble: [ros-jazzy-dbw-polaris-msgs-dbgsym]
+deepstream-spark:
+  ubuntu:
+    noble: [deepstream-spark]
 delphi_esr_msgs:
   ubuntu:
     focal: [ros-humble-delphi-esr-msgs]
@@ -7393,11 +7396,17 @@ python3-av-pip-shim:
 python3-cuda-python-pip-shim:
   ubuntu:
     noble: [python3-cuda-python-pip-shim]
+python3-cupy-cuda13x-pip-shim:
+  ubuntu:
+    noble: [python3-cupy-cuda13x-pip-shim]
 python3-gdown:
   ubuntu:
     focal: [python3-gdown]
     jammy: [python3-gdown]
     noble: [python3-gdown]
+python3-hdbscan-pip-shim:
+  ubuntu:
+    noble: [python3-hdbscan-pip-shim]
 python3-libnvinfer:
   ubuntu:
     noble: [python3-libnvinfer]
@@ -7453,6 +7462,9 @@ python3-setuptools-scm-pip-shim:
 python3-torch-pip-shim:
   ubuntu:
     noble: [python3-torch-pip-shim]
+python3-rsl-rl-lib-pip-shim:
+  ubuntu:
+    noble: [python3-rsl-rl-lib-pip-shim]
 python3-transformers-pip-shim:
   ubuntu:
     noble: [python3-transformers-pip-shim]

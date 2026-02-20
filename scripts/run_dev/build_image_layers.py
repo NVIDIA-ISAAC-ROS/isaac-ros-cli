@@ -377,7 +377,8 @@ class ImageBuildPlan:
         extra_build_args=None,
         nvcr_tag=False,
         s3_cache_config=None,
-        use_kubernetes_driver=False
+        use_kubernetes_driver=False,
+        isaac_ros_platform=None
     ):
         """
         Generate a dictionary representing the docker buildx bake configuration.
@@ -391,12 +392,16 @@ class ImageBuildPlan:
         :param extra_build_args: Dictionary of additional build args.
         :param s3_cache_config: Dictionary containing s3 cache configuration.
         :param use_kubernetes_driver: Boolean indicating if kubernetes driver is used.
+        :param isaac_ros_platform: Isaac ROS platform identifier
+            (e.g. 'amd64', 'arm64-jetpack', 'arm64-fastos').
+            Defaults to file_arch for backward compatibility.
         """
         build_plan = {}
-        nvcr_url = "nvcr.io/nvidian/isaac-ros/ros"
+        nvcr_url = "nvcr.io/nvidia/isaac/ros"
         dockerfile_list = self.dockerfiles_
         file_arch = 'arm64' if arch == 'aarch64' else 'amd64'
-        platform = file_arch  # Use file_arch directly
+        if isaac_ros_platform is None:
+            isaac_ros_platform = file_arch  # backward compat
         variables = dict(self.build_variables_)
         variables.update({
             'ARCH': arch,
@@ -429,13 +434,25 @@ class ImageBuildPlan:
 
         build_plan['targets'] = {}
         targets = build_plan['targets']
+        # Derive the distro suffix from the platform identifier to pre-source
+        # the appropriate apt repository.
+        _DISTRO_SUFFIX = {
+            'amd64': '',
+            'arm64-jetpack': '-jetpack',
+            'arm64-fastos': '-fastos',
+        }
+        distro_suffix = _DISTRO_SUFFIX.get(isaac_ros_platform, '')
+
         for i, target in enumerate(dockerfile_list):
             target_name = get_target(dockerfile_list[:i+1])
             targets[target_name] = {'name': target_name}
             target_dict = targets[target_name]
             target_dict['context'] = str(target.context_dir_)
             target_dict['dockerfile'] = target.dockerfile_path_
-            target_dict['args'] = {'PLATFORM': file_arch}
+            target_dict['args'] = {
+                'PLATFORM': file_arch,
+                'ISAAC_DEBIAN_DISTRO_SUFFIX': distro_suffix,
+            }
 
             if use_s3_cache:
                 bucket = s3_cache_config.get('bucket')
@@ -461,24 +478,26 @@ class ImageBuildPlan:
             if i == 0:
                 # First target – set (if provided) BASE_IMAGE.
                 target_dict['tags'] = [
-                    f"{cache_from_registry}/{target_name}-{platform}:latest"
+                    f"{cache_from_registry}/{target_name}-{isaac_ros_platform}:latest"
                 ]
                 if base_image is not None:
                     target_dict['args']['BASE_IMAGE'] = base_image
             else:
                 depends_name = ImageBuildPlan(dockerfile_list[:i]).target_name()
                 target_dict['tags'] = [
-                    f"{cache_from_registry}/{target_name}-{platform}:latest"
+                    f"{cache_from_registry}/{target_name}-{isaac_ros_platform}:latest"
                 ]
 
                 target_dict['args'].update({
                     'BASE_IMAGE': (
-                        f"{cache_from_registry}/{depends_name}-{platform}:latest"
+                        f"{cache_from_registry}/{depends_name}-{isaac_ros_platform}:latest"
                     )
                 })
                 target_dict['depends_on'] = [f"{get_target(dockerfile_list[:i])}"]
             if nvcr_tag:
-                target_dict['tags'].append(f"{nvcr_url}:{target_name}")
+                target_dict['tags'].append(
+                    f"{nvcr_url}:{target_name}-{isaac_ros_platform}"
+                )
 
         # If extra build args are provided, update each target's args.
         if extra_build_args:
@@ -630,27 +649,28 @@ def countdown_warning(message, seconds=5):
         sys.exit(1)
 
 
-def get_image_name(cache_from_registry_name, env_list, file_arch, include_hash=False):
-    """Get the full image name for a given environment list and architecture.
+def get_image_name(cache_from_registry_name, env_list, isaac_ros_platform, include_hash=False):
+    """Get the full image name for a given environment list and platform.
 
     Args:
         cache_from_registry_name (str): Registry name to use for the image
         env_list (List[str]): List of environment components
-        file_arch (str): Architecture (e.g. 'amd64', 'sbsa', 'arm64')
+        isaac_ros_platform (str): Isaac ROS platform identifier
+            (e.g. 'amd64', 'arm64-jetpack', 'arm64-fastos')
         include_hash (bool): Whether to include the hash in the image name
 
     Returns:
         str: Full image name including registry, environment components,
-            architecture and optionally hash
+            platform and optionally hash
     """
     base_name = '-'.join(env_list)
     if os.getenv("CONFIG_CONTAINER_NAME_SUFFIX"):
         base_name += f"-{os.getenv('CONFIG_CONTAINER_NAME_SUFFIX')}"
 
-    # Use the same docker search dirs as main()
+    # Derive coarse architecture for Config (remote builder selection, etc.)
     config = Config(
-        platform_="x86_64" if file_arch == "amd64"
-        else "aarch64" if file_arch == "arm64" or file_arch == "sbsa"
+        platform_="x86_64" if isaac_ros_platform == "amd64"
+        else "aarch64" if isaac_ros_platform.startswith("arm64")
         else platform.uname().machine
     )
     config.load_shell_common_config()
@@ -676,7 +696,7 @@ def get_image_name(cache_from_registry_name, env_list, file_arch, include_hash=F
                   "and that the docker_search_dirs are present and correct.")
             exit(1)
 
-    target_name = f"{base_name}-{file_arch}"
+    target_name = f"{base_name}-{isaac_ros_platform}"
 
     if cache_from_registry_name.count("nvcr.io"):
         return f"{cache_from_registry_name}:{target_name}"
@@ -697,7 +717,8 @@ def main(image_key_set: List[str],
          skip_registry_check: bool = False,
          build_local: bool = False,
          push: bool = False,
-         use_kubernetes_driver: bool = False):
+         use_kubernetes_driver: bool = False,
+         isaac_ros_platform: str = None):
 
     platform_ = platform_ if platform_ else platform.uname().machine
 
@@ -756,7 +777,8 @@ def main(image_key_set: List[str],
         extra_build_args=config.build_args_,
         nvcr_tag=nvcr_tag,
         s3_cache_config=config.s3_cache_,
-        use_kubernetes_driver=use_kubernetes_driver
+        use_kubernetes_driver=use_kubernetes_driver,
+        isaac_ros_platform=isaac_ros_platform,
     )
     docker_bake = ImageBuildPlan.as_hcl_str(docker_bake_dict)
     print(redact_bake_hcl(docker_bake))
@@ -990,6 +1012,15 @@ if __name__ == "__main__":
         help="Use Kubernetes driver (deploy BuildKit pods on-demand, bypasses NLB).",
         default=False
     )
+    parser.add_argument(
+        '--isaac-ros-platform',
+        type=str,
+        dest='isaac_ros_platform',
+        default=None,
+        help='Isaac ROS platform identifier (e.g., amd64, arm64-jetpack, arm64-fastos). '
+             'Determines the apt distro suffix baked into the image and the image name suffix. '
+             'Defaults to coarse file_arch for backward compatibility.'
+    )
 
     args = parser.parse_args()
 
@@ -1015,5 +1046,6 @@ if __name__ == "__main__":
         nvcr_tag=args.nvcr,
         skip_registry_check=args.skip_registry_check,
         build_local=args.build_local,
-        use_kubernetes_driver=args.use_kubernetes_driver
+        use_kubernetes_driver=args.use_kubernetes_driver,
+        isaac_ros_platform=args.isaac_ros_platform,
     )
