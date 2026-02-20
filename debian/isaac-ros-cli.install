@@ -15,5 +15,6 @@ scripts/run_dev/isaac_ros_common_config_utils.py usr/lib/isaac-ros-cli/
 scripts/run_dev/run_dev.py usr/lib/isaac-ros-cli/
 scripts/profile.d/isaac-ros-cli-path.sh etc/profile.d/
 docker/packaging/isaac-ros-cuda-13-0.pref etc/apt/preferences.d/
+docker/packaging/isaac-ros-dgx-spark.pref etc/apt/preferences.d/
 docker/packaging/isaac-ros-opencv-4-6.pref etc/apt/preferences.d/
 docker/packaging/isaac-ros-tensorrt-13-0.pref etc/apt/preferences.d/

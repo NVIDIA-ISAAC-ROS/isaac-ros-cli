@@ -7,6 +7,7 @@
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 #
 # All-in-one image for Isaac ROS development
+
 FROM nvcr.io/nvidia/base/ubuntu:noble-20251013
 
 ARG PLATFORM=amd64
@@ -37,18 +38,18 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         udev \
         wget
 
+ARG ISAAC_DEBIAN_COMPONENTS="main external-main"
+ARG ISAAC_DEBIAN_DISTRO_SUFFIX=""
+
 # Set up Isaac ROS apt repository
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    /bin/bash -c ' \
-    set -e; \
-    k="/usr/share/keyrings/nvidia-isaac-ros.gpg"; \
-    curl -fsSL https://isaac.download.nvidia.com/isaac-ros/repos.key | gpg --dearmor | tee -a "$k" > /dev/null; \
-    f="/etc/apt/sources.list.d/nvidia-isaac-ros.list"; \
-    touch "$f"; \
-    s="deb [signed-by=$k] https://isaac.download.nvidia.com/isaac-ros/release-4.1 $(lsb_release -cs) main"; \
-    grep -qxF "$s" "$f" || echo "$s" | tee -a "$f"; \
-    apt-get update \
-    '
+    k="/usr/share/keyrings/nvidia-isaac-ros.gpg" \
+    && curl -fsSL https://isaac.download.nvidia.com/isaac-ros/repos.key | gpg --dearmor | tee -a $k > /dev/null \
+    && f="/etc/apt/sources.list.d/nvidia-isaac-ros.list" \
+    && touch $f \
+    && s="deb [signed-by=$k] https://isaac.download.nvidia.com/isaac-ros/release-4.2 $(lsb_release -cs)${ISAAC_DEBIAN_DISTRO_SUFFIX} ${ISAAC_DEBIAN_COMPONENTS}" \
+    && (grep -qxF "$s" $f || echo "$s" | tee -a $f) \
+    && apt-get update
 
 # Set up CUDA apt repository
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -69,9 +70,9 @@ ENV PATH="/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/src/tensorrt/bin:${PATH
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-key adv --fetch-key https://repo.download.nvidia.com/jetson/jetson-ota-public.asc && \
     if [[ ${PLATFORM} == 'arm64' ]]; then \
-        echo 'deb http://repo.download.nvidia.com/jetson/common r38.2 main' > /etc/apt/sources.list.d/nvidia-jetson-apt-source.list; \
+        echo 'deb http://repo.download.nvidia.com/jetson/common r38.4 main' > /etc/apt/sources.list.d/nvidia-jetson-apt-source.list; \
     elif [[ ${PLATFORM} == 'amd64' ]]; then \
-        echo 'deb http://repo.download.nvidia.com/jetson/x86_64/noble r38.2 main' > /etc/apt/sources.list.d/nvidia-jetson-apt-source.list; \
+        echo 'deb http://repo.download.nvidia.com/jetson/x86_64/noble r38.4 main' > /etc/apt/sources.list.d/nvidia-jetson-apt-source.list; \
     else \
         echo "Unrecognized platform: ${PLATFORM}" && exit 1 ; \
     fi && \

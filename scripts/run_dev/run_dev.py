@@ -275,10 +275,10 @@ def load_docker_args_from_file():
         docker_args_files.append(os.path.join(
             os.path.dirname(__file__), ".isaac_ros_dev-dockerargs"))
     elif "ISAAC_ROS_WS" in os.environ and os.path.isfile(
-        os.path.expandvars("$ISAAC_ROS_WS/../scripts/.isaac_ros_dev-dockerargs")
+        os.path.expandvars("$ISAAC_ROS_WS/scripts/.isaac_ros_dev-dockerargs")
     ):
         docker_args_files.append(os.path.expandvars(
-            "$ISAAC_ROS_WS/../scripts/.isaac_ros_dev-dockerargs"))
+            "$ISAAC_ROS_WS/scripts/.isaac_ros_dev-dockerargs"))
     else:
         docker_args_files.append("/etc/isaac-ros-cli/.isaac_ros_dev-dockerargs")
 
@@ -445,7 +445,7 @@ def parse_args():
     parser.add_argument(
         "--isaac-ros-platform",
         default=None,
-        help="Isaac ROS platform identifier (e.g., amd64, arm64)"
+        help="Isaac ROS platform identifier (e.g., amd64, arm64-jetpack, arm64-fastos)"
     )
     args = parser.parse_args()
 
@@ -456,6 +456,22 @@ def parse_args():
     # Append extra environments if provided
     if args.extra_env:
         args.env.extend([e for e in args.extra_env if e not in args.env])
+
+    # Auto-detect isaac_ros_platform from host when not explicitly provided
+    if args.isaac_ros_platform is None:
+        machine = args.platform  # already defaults to os.uname().machine
+        if machine == 'x86_64':
+            args.isaac_ros_platform = 'amd64'
+        elif machine == 'aarch64':
+            if os.path.exists('/etc/fastos-release'):
+                args.isaac_ros_platform = 'arm64-fastos'
+            elif os.path.exists('/etc/nv_tegra_release'):
+                args.isaac_ros_platform = 'arm64-jetpack'
+            else:
+                print("Warning: Could not determine Isaac ROS platform on ARM64. "
+                      "Defaulting to 'arm64-jetpack'. "
+                      "Use --isaac-ros-platform to override.")
+                args.isaac_ros_platform = 'arm64-jetpack'
 
     return args
 
@@ -495,13 +511,6 @@ def main():
     args = parse_args()
     config_path = get_isaac_ros_common_config_path()
     config = get_isaac_ros_common_config_values(config_path)
-    platform = args.platform
-
-    file_arch = (
-        'amd64' if platform == 'x86_64'
-        else 'arm64' if platform == 'aarch64'
-        else None
-    )
 
     env_list = get_build_order(
         str(config['image_key_order'][0]).split('.'),
@@ -529,7 +538,8 @@ def main():
     print(env_list)
 
     cached_image_name = "cached_isaac_run_dev_image_local:latest"
-    base_name = get_image_name(cache_from_registry_name, env_list, file_arch, include_hash=True)
+    base_name = get_image_name(
+        cache_from_registry_name, env_list, args.isaac_ros_platform, include_hash=True)
     if args.use_cached_build_image:
         # Check if cached image exists before using it
 
@@ -557,6 +567,7 @@ def main():
             'target_image_name': base_name,
             'verbose': args.verbose,
             'no_cache': args.no_cache,
+            'isaac_ros_platform': args.isaac_ros_platform,
         }
 
         if args.build_local:
