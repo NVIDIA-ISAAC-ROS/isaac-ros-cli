@@ -214,11 +214,6 @@ def get_docker_args(platform):
         "-v /tmp/.X11-unix:/tmp/.X11-unix",
         f"-v {shlex.quote(home_path)}/.Xauthority:/home/admin/.Xauthority:rw",
     ]
-    # Add existing bash config files
-    for config in get_existing_bash_configs():
-        docker_args.append(
-            f"-v {shlex.quote(home_path)}/{config}:/home/admin/{config}:ro"
-        )
     docker_args.extend([
         "-e DISPLAY",
         "-e NVIDIA_VISIBLE_DEVICES=all",
