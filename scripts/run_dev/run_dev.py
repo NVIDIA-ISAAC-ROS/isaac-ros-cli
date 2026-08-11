@@ -218,7 +218,13 @@ def get_docker_args(platform):
     home_path = os.path.expanduser('~')
     docker_args = [
         "-v /tmp/.X11-unix:/tmp/.X11-unix",
-        f"-v {shlex.quote(home_path)}/.Xauthority:/home/admin/.Xauthority:rw",
+        # NOTE (2026-08-09): the promoted image ships /home/admin/.Xauthority as a
+        # DIRECTORY, so bind-mounting the host's .Xauthority FILE onto it fails
+        # ("mount a file onto a directory"). It only used to work when the host
+        # path was also a directory. We don't need X-forwarding into the
+        # container here, so the mount is disabled. To restore GUI/RViz, mount the
+        # host file to a distinct file path and export XAUTHORITY to it instead.
+        # f"-v {shlex.quote(home_path)}/.Xauthority:/home/admin/.Xauthority:rw",
     ]
     # Add existing bash config files
     for config in get_existing_bash_configs():
