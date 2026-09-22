@@ -10,27 +10,36 @@
 #  https://github.com/jetsonhacks/installRealSenseSDK
 ARG BASE_IMAGE=ubuntu:24.04
 FROM ${BASE_IMAGE}
-
-ENV ROS_DISTRO=jazzy
-ENV ROS_ROOT=/opt/ros/${ROS_DISTRO}
+SHELL ["/bin/bash", "-c"]
 
 ARG LIBREALSENSE_SOURCE_VERSION=v2.56.3
 ARG REALSENSE_ROS_GIT_URL=https://github.com/realsenseai/realsense-ros.git
 ARG REALSENSE_ROS_VERSION=r/4.56.3
 ARG LIBREALSENSE_BUILD_TOOL_OPTIONS=--force_rsusb
+ARG ISAAC_ROS_PLATFORM=""
 
 COPY scripts/build-librealsense.sh /opt/realsense/build-librealsense.sh
 COPY scripts/install-realsense-dependencies.sh /opt/realsense/install-realsense-dependencies.sh
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    apt-get update && apt-get install -y cuda-toolkit
+    apt-get update && \
+    if [[ "${ISAAC_ROS_PLATFORM}" == "arm64-fastos" ]]; then \
+        apt-get install -y cuda-toolkit-13-0; \
+    else \
+        apt-get install -y cuda-toolkit-13-2; \
+    fi
 RUN chmod +x /opt/realsense/install-realsense-dependencies.sh && \
     /opt/realsense/install-realsense-dependencies.sh
 RUN chmod +x /opt/realsense/build-librealsense.sh && /opt/realsense/build-librealsense.sh -v ${LIBREALSENSE_SOURCE_VERSION} ${LIBREALSENSE_BUILD_TOOL_OPTIONS}
 
+COPY patches/realsense-ros-lyrical.patch /opt/realsense/realsense-ros-lyrical.patch
+
 RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,sharing=locked,target=/var/lib/apt/lists \
-    mkdir -p ${ROS_ROOT}/src && cd ${ROS_ROOT}/src \
-    && git clone --depth 1 ${REALSENSE_ROS_GIT_URL} -b ${REALSENSE_ROS_VERSION} 
+    : "${ROS_ROOT:?ROS_ROOT must be set by the ROS base layer}" \
+    && : "${ROS_DISTRO:?ROS_DISTRO must be set by the ROS base layer}" \
+    && mkdir -p ${ROS_ROOT}/src && cd ${ROS_ROOT}/src \
+    && git clone --depth 1 ${REALSENSE_ROS_GIT_URL} -b ${REALSENSE_ROS_VERSION} \
+    && git -C realsense-ros apply /opt/realsense/realsense-ros-lyrical.patch
 
 # Install realsense-ros ROS 2 package
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -48,7 +57,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && cd ../ && apt-get install -y ./*.deb && rm ./*.deb \
     && cd ${ROS_ROOT}/src/realsense-ros/realsense2_camera && bloom-generate rosdebian \
     && sed -i 's/dh_shlibdeps -/dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info -/g' debian/rules \
-    && sed -i 's/ros-jazzy-librealsense2, //g' debian/control \
+    && sed -i "s/ros-${ROS_DISTRO}-librealsense2, //g" debian/control \
     && fakeroot debian/rules binary \
     && cd ../ && apt-get install -y ./*.deb \
     && cd ../ && rm -Rf ${ROS_ROOT}/src/realsense-ros

@@ -15,6 +15,7 @@ SHELL ["/bin/bash", "-c"]
 
 COPY scripts/install-zed-x86_64.sh /opt/zed/install-zed-x86_64.sh
 COPY scripts/install-zed-aarch64.sh /opt/zed/install-zed-aarch64.sh
+COPY patches/zed-ros2-wrapper-lyrical.patch /opt/zed/zed-ros2-wrapper-lyrical.patch
 
 # Install ZED SDK based on architecture
 RUN chmod +x /opt/zed/install-zed-x86_64.sh /opt/zed/install-zed-aarch64.sh && \
@@ -31,20 +32,23 @@ RUN chmod +x /opt/zed/install-zed-x86_64.sh /opt/zed/install-zed-aarch64.sh && \
 # ------------------------------------------------------------------------------
 # Install zed-ros2-wrapper into a workspace and build it
 # Expects:
-#   - ROS 2 Jazzy already installed in the base image at /opt/ros/${ROS_DISTRO}
+#   - ROS 2 Lyrical already installed in the base image at /opt/ros/${ROS_DISTRO}
 #   - rosdep initialized (as in our isaac_ros base)
 # -------------------------------------------------------------------------------
-ARG ROS_DISTRO=jazzy
+ARG ROS_DISTRO=lyrical
 ENV ROS_DISTRO=${ROS_DISTRO}
 ENV ROS_ROOT=/opt/ros/${ROS_DISTRO}
 
 ARG ISAAC_ROS_WS=/opt/ros_ws
 ENV ISAAC_ROS_WS=${ISAAC_ROS_WS}
 
+ARG ISAAC_ROS_PLATFORM=""
+
 # Clone zed-ros2-wrapper (with submodules)
 RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,sharing=locked,target=/var/lib/apt/lists \
     mkdir -p ${ISAAC_ROS_WS}/src && cd ${ISAAC_ROS_WS}/src \
-    && git clone --recurse-submodules https://github.com/stereolabs/zed-ros2-wrapper -b v5.2.0
+    && git clone --recurse-submodules https://github.com/stereolabs/zed-ros2-wrapper -b v5.2.0 \
+    && git -C zed-ros2-wrapper apply --unidiff-zero /opt/zed/zed-ros2-wrapper-lyrical.patch
 
 # Disable ZED SDK AI features by default in zed-ros2-wrapper config.
 # We install the ZED SDK with `skip_od_module`, so Neural Depth / Object Detection / Body Tracking
@@ -94,7 +98,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && if [[ -f "${ROS_ROOT}/setup.bash" ]]; then source "${ROS_ROOT}/setup.bash"; else echo "Missing ROS setup: ${ROS_ROOT}/setup.bash" && exit 1; fi \
     && rosdep update \
     # zed-ros2-wrapper's build expects CUDA toolchain to be available.
-    # Install CUDA via rosdep (matches isaac_ros_zed's `cuda-toolkit` dependency).
+    # Install CUDA via rosdep using the platform-pinned toolkit package.
     && mkdir -p /tmp/isaac_ros_zed_deps \
     && printf '%s\n' \
         '<?xml version="1.0"?>' \
@@ -104,7 +108,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         '  <description>Dependency shim for ZED image build</description>' \
         '  <maintainer email="isaac-ros-maintainers@nvidia.com">Isaac ROS Maintainers</maintainer>' \
         '  <license>Apache-2.0</license>' \
-        '  <depend>cuda-toolkit</depend>' \
+        '  <depend condition="$ISAAC_ROS_PLATFORM != arm64-fastos">cuda-toolkit-13-2</depend>' \
+        '  <depend condition="$ISAAC_ROS_PLATFORM == arm64-fastos">cuda-toolkit-13-0</depend>' \
         '</package>' \
       > /tmp/isaac_ros_zed_deps/package.xml \
     && rosdep install --from-paths /tmp/isaac_ros_zed_deps --ignore-src -r -y \

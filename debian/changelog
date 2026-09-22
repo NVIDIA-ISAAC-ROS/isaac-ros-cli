@@ -1,3 +1,13 @@
+isaac-ros-cli (2.6.0-1) noble; urgency=low
+
+  * Build Isaac ROS container images on ROS 2 Lyrical.
+  * Remove the `noble` and `ros2_jazzy` image keys, deprecated since Isaac ROS 4.1, in favor of the `isaac_ros` base layer.
+  * Fix `run_dev` GPU access on IGX by using CDI devices when available and otherwise selecting the NVIDIA container runtime explicitly.
+  * Pin the CUDA toolkit per platform, 13.2 on x86_64 and JetPack and 13.0 on DGX Spark, instead of applying one CUDA preference to every platform.
+  * Update pip shim constraints, including PyTorch 2.12 with CUDA 13.2, rosdep mappings, and Docker image definitions for Isaac ROS 5.0.
+
+ -- Isaac ROS Maintainers <isaac-ros-maintainers@nvidia.com>  Mon, 21 Sep 2026 12:00:00 +0000
+
 isaac-ros-cli (2.5.0-1) noble; urgency=low
 
   * Add configurable Docker image push defaults and `isaac-ros activate --push` and `--no-push` overrides.
@@ -5,7 +15,7 @@ isaac-ros-cli (2.5.0-1) noble; urgency=low
   * Update CUDA, TensorRT, Jetson, and DGX Spark package selection for JetPack 7.2 and Dockerless workflows.
   * Update Isaac Teleop and pyvers pip shim constraints, rosdep mappings, and Docker image definitions for Isaac ROS 4.6.
 
- -- Isaac ROS Maintainers <isaac-ros-maintainers@nvidia.com>  Tue, 18 Aug 2026 12:00:00 +0000
+ -- Isaac ROS Maintainers <isaac-ros-maintainers@nvidia.com>  Thu, 13 Aug 2026 12:00:00 +0000
 
 isaac-ros-cli (2.4.0-1) noble; urgency=low
 

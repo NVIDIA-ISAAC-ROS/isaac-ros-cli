@@ -16,7 +16,7 @@ docker:
 
 apt:
   key_url: https://isaac.download.nvidia.com/isaac-ros/repos.key
-  repository: https://isaac.download.nvidia.com/isaac-ros/release-4
+  repository: https://isaac.download.nvidia.com/isaac-ros/release-5.0
   distro: noble
   components:
     - main

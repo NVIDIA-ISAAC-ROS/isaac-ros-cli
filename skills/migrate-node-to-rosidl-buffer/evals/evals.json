@@ -1,0 +1,91 @@
+{
+  "skill_name": "migrate-node-to-rosidl-buffer",
+  "evals": [
+    {
+      "id": "python_torch_image_node",
+      "prompt": "Migrate my private rclpy image-to-image node that runs a PyTorch CUDA model and retains a required CPU visualization output to rosidl Buffer transport. Keep its public behavior and prove whether the ROS hops still copy through host memory.",
+      "expected_output": "A minimal migration of the supplied node that publishes once for mixed CPU and CUDA consumers, retains the required CPU visualization boundary, and validates backend placement, semantic equivalence, lifetime safety, and payload-sized copies in separate processes.",
+      "assertions": [
+        "Records and inventories the supplied node before editing",
+        "Works within the supplied codebase without searching for a replacement or requiring repository-provenance screening",
+        "Chooses between a buffer-backed Image field and ExperimentalTensor deliberately",
+        "Uses clone=False, accepts documented CPU promotion in production, and asserts CUDA in the optimized-path test",
+        "Keeps the required CPU visualization as a named local boundary",
+        "Publishes once and tests simultaneous CUDA and unmodified CPU subscribers",
+        "Documents device-to-device output copies and terminal host boundaries",
+        "Exercises QoS backlog and diagnoses stale CUDA IPC allocation lifetime",
+        "Requires process and profiler evidence in addition to build success"
+      ]
+    },
+    {
+      "id": "cpp_cuda_existing_message",
+      "prompt": "Retrofit a C++ ROS 2 CUDA filter that subscribes and publishes sensor_msgs/Image so compatible GPU nodes can exchange the data field efficiently without losing image metadata.",
+      "expected_output": "A small source patch that retains sensor_msgs/Image, preserves its complete metadata and strides, uses stream-aware Buffer handles and subscription options, and proves negotiated CUDA transport plus CPU fallback.",
+      "assertions": [
+        "Keeps the existing message type when its buffer field fits",
+        "Uses stream-aware input and output handles",
+        "Preserves padded image step and passes subscription options through existing adapters",
+        "Releases the output handle before publish",
+        "Preserves encoding, dimensions, step, header, QoS, and numerical behavior",
+        "Tests runtime backend negotiation and fallback policy"
+      ]
+    },
+    {
+      "id": "skeptical_zero_copy_audit",
+      "prompt": "The node logs that CUDA is available and the subscriber gets a CUDA tensor. Determine whether the pipeline actually avoided host transport copies and explain how to verify it.",
+      "expected_output": "An evidence-based audit that distinguishes CUDA availability and later promotion from received backend placement, inventories hidden copies, and requires matched separate-process profiler traces rather than cross-process pointer equality.",
+      "assertions": [
+        "Does not accept CUDA availability as transport proof",
+        "Checks backend_type at the receiving process",
+        "Searches for clone, CPU, NumPy, item, memcpy, and synchronization boundaries",
+        "Explains why cross-process pointer equality is not required",
+        "Uses steady-state profiler evidence and classifies expected transfers by size"
+      ]
+    },
+    {
+      "id": "cpu_native_existing_node",
+      "prompt": "Make my existing CPU-only C++ image republisher rosidl Buffer-ready on its current ROS 2 environment. Preserve its topic and CPU behavior; do not add CUDA unless the code and runtime require it.",
+      "expected_output": "A minimal CPU-native Buffer migration of the supplied node that preserves its public contract and clearly separates Buffer compatibility from any unproven acceleration or copy-elimination claim.",
+      "assertions": [
+        "Starts from the supplied node and inspects the exact generated Image data field",
+        "Keeps the CPU backend when it is the node's natural storage domain",
+        "Avoids unnecessary CUDA, Torch, tensor message, or model changes",
+        "Preserves the topic, metadata, QoS, and message content",
+        "Reports Buffer compatibility separately from any unproven acceleration or copy-elimination claim"
+      ]
+    },
+    {
+      "id": "mixed_cpu_cuda_boundaries",
+      "prompt": "Migrate my existing ROS 2 node whose compressed image is decoded and preprocessed on CPU, uploaded for one CUDA kernel, then downloaded for required CPU geometry and publication. Make the useful boundaries rosidl Buffer-ready without changing its algorithm.",
+      "expected_output": "A per-field migration that preserves the existing algorithm, keeps required CPU boundaries explicit, changes only beneficial Buffer edges, and reports which host-device copies necessarily remain.",
+      "assertions": [
+        "Maps the complete payload path before editing",
+        "Explains which required host boundaries remain",
+        "Migrates only fields that benefit and leaves required CPU paths intact",
+        "Works within the supplied node and does not propose an algorithm rewrite"
+      ]
+    },
+    {
+      "id": "transitive_torch_semantics",
+      "prompt": "Make my existing PyTorch detector wrapper rosidl Buffer-ready. Its NumPy path performs BGR conversion and letterboxing, while the tensor path expects normalized RGB BCHW and later converts the original image to NumPy for coordinates.",
+      "expected_output": "A migration based on inspection of pinned transitive preprocessing and postprocessing that preserves color, layout, normalization, coordinate, and public-output semantics without rewriting the framework.",
+      "assertions": [
+        "Inspects pinned transitive framework code",
+        "Finds the preprocessing semantic difference and hidden output D2H",
+        "Preserves detection coordinates and public behavior as explicit criteria",
+        "Keeps incompatible paths unchanged or adds a small semantics-preserving adapter instead of rejecting the node or rewriting the framework"
+      ]
+    },
+    {
+      "id": "async_queue_lifetime",
+      "prompt": "Migrate a CUDA stereo node that stores synchronized images in an asynchronous worker queue before inference and publishes standard depth Image output.",
+      "expected_output": "A lifetime-safe migration that queues message owners, acquires Buffer handles in the worker, preserves both row strides and subscription options, and validates delayed processing beyond QoS history without stale CUDA descriptors.",
+      "assertions": [
+        "Queues the ROS message owners, acquires handles in the worker, and keeps both alive until dependent GPU work is enqueued",
+        "Passes subscription options through the existing synchronization adapter",
+        "Honors both input row strides",
+        "Tests delayed processing beyond QoS history and fails on stale descriptors"
+      ]
+    }
+  ]
+}

@@ -59,7 +59,11 @@ case "$1" in
         chmod -R g+rwX /var/lib/isaac-ros-cli/
         find /var/lib/isaac-ros-cli/ -type d -exec chmod g+s {} \;
 
-        # Activate platform-specific apt pins only on their target platform.
+        # Activate platform-specific apt pins only on their target platforms.
+        CUDA_13_0_PREF_SRC="/etc/isaac-ros-cli/docker/packaging/isaac-ros-cuda-13-0.pref"
+        CUDA_13_0_PREF_DST="/etc/apt/preferences.d/isaac-ros-cuda-13-0.pref"
+        CUDA_13_2_PREF_SRC="/etc/isaac-ros-cli/docker/packaging/20-isaac-ros-cuda-13-2.pref"
+        CUDA_13_2_PREF_DST="/etc/apt/preferences.d/20-isaac-ros-cuda-13-2.pref"
         SPARK_PREF_SRC="/etc/isaac-ros-cli/docker/packaging/20-isaac-ros-dgx-spark.pref"
         SPARK_PREF_DST="/etc/apt/preferences.d/20-isaac-ros-dgx-spark.pref"
         JETSON_PREF_SRC="/etc/isaac-ros-cli/docker/packaging/20-isaac-ros-jetson.pref"
@@ -74,12 +78,21 @@ case "$1" in
         # semantics (--force-confold): install when absent, otherwise keep an
         # admin-modified file and leave the packaged version as .dpkg-dist.
         activate_platform_pref() {
-            expected_platform="$1"
+            expected_platforms="$1"
             pref_src="$2"
             pref_dst="$3"
             platform_name="$4"
 
-            if [ "${platform}" = "${expected_platform}" ]; then
+            should_activate=0
+            if [ -n "${platform}" ]; then
+                case " ${expected_platforms} " in
+                    *" ${platform} "*)
+                        should_activate=1
+                        ;;
+                esac
+            fi
+
+            if [ "${should_activate}" -eq 1 ]; then
                 if [ ! -f "$pref_src" ]; then
                     echo "Skipping ${platform_name} apt pin activation: missing source $pref_src" >&2
                     return 0
@@ -98,6 +111,11 @@ case "$1" in
             fi
         }
 
+        activate_platform_pref \
+            "amd64 arm64-jetpack" \
+            "$CUDA_13_2_PREF_SRC" "$CUDA_13_2_PREF_DST" "CUDA 13.2"
+        activate_platform_pref \
+            "arm64-fastos" "$CUDA_13_0_PREF_SRC" "$CUDA_13_0_PREF_DST" "CUDA 13.0"
         activate_platform_pref \
             "arm64-fastos" "$SPARK_PREF_SRC" "$SPARK_PREF_DST" "DGX Spark"
         activate_platform_pref \

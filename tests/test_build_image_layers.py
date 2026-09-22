@@ -215,6 +215,58 @@ class TestBakeLayerDependsOn(unittest.TestCase):
         ):
             self.assertNotEqual(first.target_names(), second.target_names())
 
+    def test_cli_image_name_matches_pushed_nvcr_tag_with_snapshot_args(self):
+        mod = self.build_image_layers
+        build_args = [
+            'ISAAC_DEBIAN_KEY_URL=https://apt.example.test/repos.key',
+            'ISAAC_DEBIAN_REPOSITORY=https://apt.example.test/snapshot/',
+            'ISAAC_DEBIAN_DIST=noble',
+            'ISAAC_DEBIAN_COMPONENTS=main',
+        ]
+
+        with TemporaryDirectory() as tmpdir:
+            context = Path(tmpdir)
+            (context / 'Dockerfile.isaac_ros').write_text(
+                'FROM scratch\n', encoding='utf-8'
+            )
+
+            class FakeConfig:
+                def __init__(self, platform_):
+                    self.platform_ = platform_
+                    self.image_key_order_ = ['isaac_ros']
+                    self.docker_search_dirs_ = [str(context)]
+                    self.context_overrides_ = {}
+
+                def load_shell_common_config(self):
+                    return True
+
+            plan = mod.resolve_dockerfiles(
+                mod.ImageKey(['isaac_ros']),
+                [str(context)],
+            )
+            plan.build_variables_.update(mod.parse_build_args(build_args))
+            bake = plan.generate_bake_dict(
+                'aarch64',
+                'registry.example.test/cache',
+                'registry.example.test/cache',
+                extra_build_args=mod.parse_build_args(build_args),
+                nvcr_tag=True,
+                isaac_ros_platform='arm64-jetpack',
+            )
+
+            target = bake['targets'][plan.target_names()[0]]
+            pushed_ref = target['tags'][-1]
+            pushed_registry = pushed_ref.rsplit(':', maxsplit=1)[0]
+            with mock.patch.object(mod, 'Config', FakeConfig), _silence_stdio():
+                cli_ref = mod.get_image_name(
+                    pushed_registry,
+                    ['isaac_ros'],
+                    'arm64-jetpack',
+                    include_hash=True,
+                    build_args=build_args,
+                )
+            self.assertIn(cli_ref, target['tags'])
+
     def test_isaac_ros_hash_inputs_include_local_cli_debian(self):
         mod = self.build_image_layers
 
@@ -326,9 +378,9 @@ class TestBuildImageLayersMain(unittest.TestCase):
                     mod.ImageKey(['realsense'])
                 ),
                 mod.Dockerfile(
-                    Path('/tmp/Dockerfile.ros_eng'),
+                    Path('/tmp/Dockerfile.custom'),
                     Path('/tmp/context'),
-                    mod.ImageKey(['ros_eng'])
+                    mod.ImageKey(['custom'])
                 ),
             ]
         return mod.ImageBuildPlan(dockerfiles)
@@ -337,7 +389,7 @@ class TestBuildImageLayersMain(unittest.TestCase):
         class FakeConfig:
             def __init__(self, platform_):
                 self.target_image_name_ = None
-                self.image_key_order_ = ['isaac_ros', 'realsense', 'ros_eng']
+                self.image_key_order_ = ['isaac_ros', 'realsense', 'custom']
                 self.docker_search_dirs_ = ['/tmp/context']
                 self.cache_to_registry_names_ = ['registry.example.com/cache']
                 self.cache_from_registry_names_ = ['registry.example.com/cache']
@@ -387,7 +439,7 @@ class TestBuildImageLayersMain(unittest.TestCase):
             mock.patch.object(mod, 'run_shell', side_effect=fake_run_shell),
             _silence_stdio(),
         ):
-            mod.main({'isaac_ros', 'realsense', 'ros_eng'}, **kwargs)
+            mod.main({'isaac_ros', 'realsense', 'custom'}, **kwargs)
             target_names = plan.target_names()
 
         return target_names, commands, image_exists

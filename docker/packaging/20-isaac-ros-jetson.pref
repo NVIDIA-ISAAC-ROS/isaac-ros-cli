@@ -14,14 +14,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Prefer CUDA packages from the Jetson repository over the global CUDA 13.2
-# preference and packages available from another repository.
-Package: cuda-* libnv*
-Pin: origin repo.download.nvidia.com
-Pin-Priority: 1002
-
-# Prefer all other Jetson packages over packages from other configured NVIDIA
-# repositories, including the CUDA SBSA repository pinned at priority 600.
+# Prefer Jetson packages over default-priority packages from other configured
+# repositories without outranking higher-priority CUDA package pins.
 Package: *
 Pin: origin repo.download.nvidia.com
-Pin-Priority: 700
+Pin-Priority: 550

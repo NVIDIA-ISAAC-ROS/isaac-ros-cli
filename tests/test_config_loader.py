@@ -122,7 +122,7 @@ class ConfigLoaderTests(unittest.TestCase):
         )
         self.assertEqual(
             shipped_config["apt"]["repository"],
-            "https://isaac.download.nvidia.com/isaac-ros/release-4",
+            "https://isaac.download.nvidia.com/isaac-ros/release-5.0",
         )
         self.assertEqual(shipped_config["apt"]["distro"], "noble")
         self.assertEqual(shipped_config["apt"]["components"], ["main"])

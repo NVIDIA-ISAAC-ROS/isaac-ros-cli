@@ -235,6 +235,8 @@ def get_docker_args(platform):
         f"-e HOST_USER_UID={os.getuid()}",
         f"-e HOST_USER_GID={os.getgid()}",
     ])
+    if os.path.exists("/etc/fastos-release"):
+        docker_args.append("-v /etc/fastos-release:/etc/fastos-release:ro")
     if platform == "aarch64":
         if "SSH_AUTH_SOCK" in os.environ:
             ssh_auth_sock = os.environ['SSH_AUTH_SOCK']
@@ -272,6 +274,28 @@ def get_docker_args(platform):
             pass
 
     return docker_args
+
+
+def get_gpu_docker_args(platform):
+    """Return Docker GPU arguments compatible with the host NVIDIA stack."""
+    if platform != "aarch64" or not os.path.isfile("/etc/igx-release"):
+        return ["--gpus all"]
+
+    try:
+        cdi_devices = subprocess.check_output(
+            ["/usr/bin/nvidia-ctk", "cdi", "list"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).splitlines()
+    except (OSError, subprocess.CalledProcessError):
+        cdi_devices = []
+
+    if "nvidia.com/gpu=all" in {device.strip() for device in cdi_devices}:
+        return ["--device=nvidia.com/gpu=all"]
+
+    # IGX uses the CSV mode of the NVIDIA container runtime. In this mode,
+    # Docker's --gpus flag requires the NVIDIA runtime to be selected explicitly.
+    return ["--runtime=nvidia", "--gpus all"]
 
 
 def realpath(path):
@@ -364,7 +388,9 @@ def run_docker_container(args, container_name, base_name, isaac_dir):
         f"-v {shlex.quote(isaac_dir)}:/workspaces/isaac_ros-dev",
         "-v /etc/localtime:/etc/localtime:ro",
         f"--name {shlex.quote(container_name)}",
-        "--gpus all",
+    ])
+    docker_command_parts.extend(get_gpu_docker_args(args.platform))
+    docker_command_parts.extend([
         "--entrypoint /usr/local/bin/scripts/workspace-entrypoint.sh",
         shlex.quote(base_name),
         "/bin/bash"
@@ -410,7 +436,7 @@ def parse_args():
 
     parser.add_argument("--env", action="append", required=False,
                         default=None)  # Keep default=None so user-provided envs override defaults
-    DEFAULT_ENV_LIST = ["noble", "ros2_jazzy", "ros_eng", "realsense"]
+    DEFAULT_ENV_LIST = ["isaac_ros", "realsense"]
 
     parser.add_argument("--extra_env",
                         action="append",

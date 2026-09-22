@@ -18,9 +18,3 @@
 Package: deepstream-spark vpi4-dev libnvvpi4
 Pin: release n=noble-fastos
 Pin-Priority: 1001
-
-# Prefer CUDA 13.0 on DGX Spark. Priority 1002 ensures CUDA packages resolve
-# at 13.0 regardless of the versions available from configured repositories.
-Package: cuda-* libnv*
-Pin: version 13.0.*
-Pin-Priority: 1002

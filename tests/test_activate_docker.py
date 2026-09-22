@@ -29,8 +29,8 @@ def _make_cfg(apt=None):
         'version': SUPPORTED_CONFIG_VERSION,
         'docker': {
             'image': {
-                'base_image_keys': ['noble', 'ros2_jazzy'],
-                'additional_image_keys': ['ros_eng'],
+                'base_image_keys': ['isaac_ros'],
+                'additional_image_keys': ['custom'],
                 'push': False,
             },
             'run': {

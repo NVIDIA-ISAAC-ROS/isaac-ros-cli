@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Keep any installed CUDA 13.0 package, including cuda-toolkit-13-0, in place.
+# A priority below 1000 prevents downgrades while still outranking the validated
+# release pins below.
+Package: cuda-*-13-0 libcu*-13-0 libnv*-13-0
+Pin: release a=now
+Pin-Priority: 999
+
+# Keep CUDA toolkit metapackages on validated CUDA 13.0 releases when CUDA is
+# not already installed. Keep the priority below 1000 so apt never downgrades an
+# installed package to this release.
+Package: cuda-toolkit-13-0 cuda-compiler-13-0 cuda-libraries-13-0 cuda-libraries-dev-13-0
+Pin: version 13.0.*
+Pin-Priority: 990
+
+Package: cuda-tools-13-0 cuda-command-line-tools-13-0 cuda-visual-tools-13-0
+Pin: version 13.0.*
+Pin-Priority: 990
+
+Package: cuda-nsight-compute-13-0 cuda-nsight-systems-13-0
+Pin: version 13.0.*
+Pin-Priority: 990
+
+# Keep CUDA toolkit transitive dependencies on CUDA 13.0 package variants.
+Package: cuda-*-13-0 libcu*-13-0 libnv*-13-0
+Pin: version *
+Pin-Priority: 990
+
+# These CUDA toolkit config packages are shared across CUDA minor package names,
+# so constrain them by package version rather than by a -13-0 package suffix.
+Package: cuda-toolkit-13-0-config-common cuda-toolkit-config-common
+Pin: version 13.0.*
+Pin-Priority: 990
