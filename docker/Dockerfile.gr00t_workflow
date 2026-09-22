@@ -11,10 +11,11 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
-        ros-jazzy-isaac-ros-unitree-g1-gr00t \
-        ros-jazzy-isaac-ros-unitree-g1-recorder \
-        ros-jazzy-isaac-ros-unitree-g1-teleop-bringup \
-        ros-jazzy-mujoco-ros2-control \
-        ros-jazzy-realsense2-camera \
-        ros-jazzy-realsense2-camera-msgs
+    : "${ROS_DISTRO:?ROS_DISTRO must be set by the ROS base layer}" \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        "ros-${ROS_DISTRO}-isaac-ros-unitree-g1-gr00t" \
+        "ros-${ROS_DISTRO}-isaac-ros-unitree-g1-recorder" \
+        "ros-${ROS_DISTRO}-isaac-ros-unitree-g1-teleop-bringup" \
+        "ros-${ROS_DISTRO}-mujoco-ros2-control" \
+        "ros-${ROS_DISTRO}-realsense2-camera" \
+        "ros-${ROS_DISTRO}-realsense2-camera-msgs"

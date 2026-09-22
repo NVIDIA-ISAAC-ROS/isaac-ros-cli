@@ -1,0 +1,31 @@
+diff --git a/zed_components/CMakeLists.txt b/zed_components/CMakeLists.txt
+index b3c412a..d23663b 100644
+--- a/zed_components/CMakeLists.txt
++++ b/zed_components/CMakeLists.txt
+@@ -44,0 +45,3 @@ if(ROS2_FOUND)
++    elseif(${FOUND_ROS2_DISTRO} STREQUAL "lyrical")
++        #message("* ROS2 ${FOUND_ROS2_DISTRO} is supported by the Isaac ROS patch.")
++        add_definitions(-DFOUND_LYRICAL)
+diff --git a/zed_components/src/zed_camera/src/zed_camera_component_main.cpp b/zed_components/src/zed_camera/src/zed_camera_component_main.cpp
+index 7a595e7..7784da2 100644
+--- a/zed_components/src/zed_camera/src/zed_camera_component_main.cpp
++++ b/zed_components/src/zed_camera/src/zed_camera_component_main.cpp
+@@ -43,0 +44,2 @@
++#elif defined FOUND_LYRICAL
++#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+@@ -6920,3 +6922,12 @@ void ZedCamera::processGeoPose()
+-    transformStamped.transform = mUtmAsParent ?
+-      (tf2::toMsg(mMap2UtmTransf)) :
+-      (tf2::toMsg(mMap2UtmTransf.inverse()));
++    const tf2::Transform map2utm_transf =
++      mUtmAsParent ? mMap2UtmTransf : mMap2UtmTransf.inverse();
++    const tf2::Vector3 origin = map2utm_transf.getOrigin();
++    transformStamped.transform.translation.x = origin.x();
++    transformStamped.transform.translation.y = origin.y();
++    transformStamped.transform.translation.z = origin.z();
++
++    const tf2::Quaternion rotation = map2utm_transf.getRotation();
++    transformStamped.transform.rotation.x = rotation.x();
++    transformStamped.transform.rotation.y = rotation.y();
++    transformStamped.transform.rotation.z = rotation.z();
++    transformStamped.transform.rotation.w = rotation.w();

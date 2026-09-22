@@ -43,11 +43,11 @@ def _import_run_dev():
     stub_config = types.ModuleType('isaac_ros_common_config_utils')
     stub_config.get_isaac_ros_common_config_path = mock.MagicMock(return_value='/fake/config.yaml')
     stub_config.get_isaac_ros_common_config_values = mock.MagicMock(return_value={
-        'image_key_order': ['noble.ros2_jazzy'],
+        'image_key_order': ['isaac_ros'],
         'cache_from_registry_names': ['registry.example.com'],
     })
     stub_config.get_build_order = mock.MagicMock(
-        return_value=['noble', 'ros2_jazzy', 'ros_eng', 'realsense'])
+        return_value=['isaac_ros', 'realsense'])
 
     sys.modules['build_image_layers'] = stub_build
     sys.modules['isaac_ros_common_config_utils'] = stub_config
@@ -80,6 +80,10 @@ class TestParseArgsMode(unittest.TestCase):
     def test_default_mode_is_run(self):
         args = self._parse()
         self.assertEqual(args.mode, 'run')
+
+    def test_default_env_uses_consolidated_base_image(self):
+        args = self._parse()
+        self.assertEqual(args.env, ['isaac_ros', 'realsense'])
 
     def test_default_push_is_false(self):
         args = self._parse()
@@ -308,6 +312,104 @@ class TestCheckLocalImageExists(unittest.TestCase):
             stdout=self.run_dev.subprocess.DEVNULL,
             stderr=self.run_dev.subprocess.DEVNULL,
         )
+
+
+class TestGpuDockerArgs(unittest.TestCase):
+    """Verify GPU device injection for IGX and other supported hosts."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.run_dev = _import_run_dev()
+
+    def test_non_igx_uses_gpus_flag(self):
+        with mock.patch.object(self.run_dev.os.path, 'isfile', return_value=False), \
+             mock.patch.object(self.run_dev.subprocess, 'check_output') as m_check_output:
+            result = self.run_dev.get_gpu_docker_args('aarch64')
+
+        self.assertEqual(result, ['--gpus all'])
+        m_check_output.assert_not_called()
+
+    def test_x86_ignores_igx_release_marker(self):
+        with mock.patch.object(self.run_dev.os.path, 'isfile', return_value=True), \
+             mock.patch.object(self.run_dev.subprocess, 'check_output') as m_check_output:
+            result = self.run_dev.get_gpu_docker_args('x86_64')
+
+        self.assertEqual(result, ['--gpus all'])
+        m_check_output.assert_not_called()
+
+    def test_igx_uses_cdi_gpu_device(self):
+        cdi_output = 'nvidia.com/gpu=0\nnvidia.com/gpu=all\nnvidia.com/pva=all\n'
+        with mock.patch.object(self.run_dev.os.path, 'isfile', return_value=True), \
+             mock.patch.object(
+                 self.run_dev.subprocess, 'check_output', return_value=cdi_output
+             ) as m_check_output:
+            result = self.run_dev.get_gpu_docker_args('aarch64')
+
+        self.assertEqual(result, ['--device=nvidia.com/gpu=all'])
+        m_check_output.assert_called_once_with(
+            ['/usr/bin/nvidia-ctk', 'cdi', 'list'],
+            text=True,
+            stderr=self.run_dev.subprocess.DEVNULL,
+        )
+
+    def test_igx_falls_back_to_explicit_nvidia_runtime(self):
+        with mock.patch.object(self.run_dev.os.path, 'isfile', return_value=True), \
+             mock.patch.object(
+                 self.run_dev.subprocess, 'check_output', side_effect=FileNotFoundError
+             ):
+            result = self.run_dev.get_gpu_docker_args('aarch64')
+
+        self.assertEqual(result, ['--runtime=nvidia', '--gpus all'])
+
+    def test_igx_falls_back_when_cdi_list_fails(self):
+        cdi_error = self.run_dev.subprocess.CalledProcessError(
+            1, ['/usr/bin/nvidia-ctk', 'cdi', 'list'])
+        with mock.patch.object(self.run_dev.os.path, 'isfile', return_value=True), \
+             mock.patch.object(
+                 self.run_dev.subprocess, 'check_output', side_effect=cdi_error
+             ):
+            result = self.run_dev.get_gpu_docker_args('aarch64')
+
+        self.assertEqual(result, ['--runtime=nvidia', '--gpus all'])
+
+    def test_igx_without_all_cdi_device_uses_explicit_nvidia_runtime(self):
+        with mock.patch.object(self.run_dev.os.path, 'isfile', return_value=True), \
+             mock.patch.object(
+                 self.run_dev.subprocess,
+                 'check_output',
+                 return_value='nvidia.com/gpu=0\nnvidia.com/pva=all\n',
+             ):
+            result = self.run_dev.get_gpu_docker_args('aarch64')
+
+        self.assertEqual(result, ['--runtime=nvidia', '--gpus all'])
+
+    def test_run_container_uses_selected_gpu_arguments(self):
+        args = types.SimpleNamespace(
+            platform='aarch64',
+            isaac_ros_platform='arm64-jetpack',
+            verbose=False,
+        )
+        with (
+            mock.patch.object(self.run_dev, 'get_docker_args', return_value=[]),
+            mock.patch.object(self.run_dev, 'load_docker_args_from_file', return_value=[]),
+            mock.patch.object(
+                self.run_dev,
+                'get_gpu_docker_args',
+                return_value=['--device=nvidia.com/gpu=all'],
+            ),
+            mock.patch.object(self.run_dev.subprocess, 'run') as m_run,
+            _silence_stdio(),
+        ):
+            self.run_dev.run_docker_container(
+                args,
+                'isaac_ros_dev_container',
+                'isaac_ros:latest',
+                '/workspaces/isaac_ros-dev',
+            )
+
+        command = m_run.call_args.args[0]
+        self.assertIn('--device=nvidia.com/gpu=all', command)
+        self.assertNotIn('--gpus all', command)
 
 
 class TestRunModePreservesDefaultBehavior(unittest.TestCase):

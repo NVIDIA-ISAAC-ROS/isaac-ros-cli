@@ -15,13 +15,21 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Block CUDA 13.3+ packages (priority -1 = never install).
-# This forces apt to select CUDA 13.2 when resolving alternative dependencies
-# like "cuda-nvcc-13-3 | cuda-nvcc-13-2".
+# This keeps apt from selecting newer CUDA 13.3+ packages when resolving
+# alternative dependencies like "cuda-nvcc-13-3 | cuda-nvcc-13-2".
 #
 # apt globs match a single char per "[..]", so two patterns are needed to cover
 # every minor >= 3 while leaving 13-0/13-1/13-2 installable:
 #   *-13-[3-9]*      -> single-digit minors 13-3 .. 13-9
 #   *-13-[1-9][0-9]* -> two-digit minors 13-10, 13-11, ... 13-99
-Package: cuda-*-13-[3-9]* cuda-*-13-[1-9][0-9]* libnv*-13-[3-9]* libnv*-13-[1-9][0-9]*
+Package: cuda-*-13-[3-9]* cuda-*-13-[1-9][0-9]*
+Pin: version *
+Pin-Priority: -1
+
+Package: libcu*-13-[3-9]* libcu*-13-[1-9][0-9]*
+Pin: version *
+Pin-Priority: -1
+
+Package: libnv*-13-[3-9]* libnv*-13-[1-9][0-9]*
 Pin: version *
 Pin-Priority: -1

@@ -18,6 +18,8 @@ rm_conffile() {
 remove_platform_apt_prefs() {
     # Platform apt pins are activated by postinst (not shipped by dpkg), so
     # remove them and any dpkg leftovers whenever package state changes.
+    rm_conffile /etc/apt/preferences.d/isaac-ros-cuda-13-0.pref
+    rm_conffile /etc/apt/preferences.d/20-isaac-ros-cuda-13-2.pref
     rm_conffile /etc/apt/preferences.d/20-isaac-ros-dgx-spark.pref
     rm_conffile /etc/apt/preferences.d/20-isaac-ros-jetson.pref
     rm_conffile /etc/apt/preferences.d/isaac-ros-dgx-spark.pref

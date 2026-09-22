@@ -15,6 +15,7 @@ import argparse
 import filecmp
 import os
 from pathlib import Path
+import re
 import shlex
 import subprocess
 import sys
@@ -28,13 +29,52 @@ ISAAC_DEBIAN_COMPONENTS = "main external-main"
 ISAAC_DEBIAN_ORIGIN = "isaac-debian-repo.nvidia.com"
 JETSON_ORIGIN = "repo.download.nvidia.com"
 JETSON_RELEASE = "r39.2"
-CUDA_TOOLKIT = "cuda-toolkit"
+CUDA_TOOLKIT_13_0 = "cuda-toolkit-13-0"
+CUDA_TOOLKIT_13_2 = "cuda-toolkit-13-2"
 CUDA_TOOLKIT_13_3 = "cuda-toolkit-13-3"
+CUDA_13_2_TOOLKIT_RELEASE_PACKAGES = (
+    "cuda-command-line-tools-13-2",
+    "cuda-compiler-13-2",
+    "cuda-libraries-13-2",
+    "cuda-libraries-dev-13-2",
+    "cuda-nsight-compute-13-2",
+    "cuda-nsight-systems-13-2",
+    "cuda-tools-13-2",
+    "cuda-visual-tools-13-2",
+)
+CUDA_13_2_CONFIG_PACKAGES = (
+    "cuda-toolkit-13-config-common",
+    "cuda-toolkit-config-common",
+)
+CUDA_13_0_TOOLKIT_RELEASE_PACKAGES = (
+    "cuda-command-line-tools-13-0",
+    "cuda-compiler-13-0",
+    "cuda-libraries-13-0",
+    "cuda-libraries-dev-13-0",
+    "cuda-nsight-compute-13-0",
+    "cuda-nsight-systems-13-0",
+    "cuda-tools-13-0",
+    "cuda-visual-tools-13-0",
+)
+CUDA_13_0_CONFIG_PACKAGES = (
+    "cuda-toolkit-13-0-config-common",
+    "cuda-toolkit-config-common",
+)
+CUDA_RELATED_PACKAGE_PREFIXES = ("cuda-", "libcu", "libnv")
+CUDA_VERSIONED_PACKAGE_SUFFIX_RE = re.compile(r"-13-[0-9]+$")
 TENSORRT_PACKAGES = ("tensorrt", "python3-libnvinfer")
 DGX_SPARK_REPO_PACKAGES = ("vpi4-dev", "libnvvpi4", "deepstream-spark")
+CUDA_13_0_PREF = "/etc/apt/preferences.d/isaac-ros-cuda-13-0.pref"
+CUDA_13_2_PREF = "/etc/apt/preferences.d/20-isaac-ros-cuda-13-2.pref"
 DGX_SPARK_PREF = "/etc/apt/preferences.d/20-isaac-ros-dgx-spark.pref"
 JETSON_PREF = "/etc/apt/preferences.d/20-isaac-ros-jetson.pref"
 LEGACY_DGX_SPARK_PREF = "/etc/apt/preferences.d/isaac-ros-dgx-spark.pref"
+PACKAGED_CUDA_13_0_PREF = (
+    "/etc/isaac-ros-cli/docker/packaging/isaac-ros-cuda-13-0.pref"
+)
+PACKAGED_CUDA_13_2_PREF = (
+    "/etc/isaac-ros-cli/docker/packaging/20-isaac-ros-cuda-13-2.pref"
+)
 PACKAGED_DGX_SPARK_PREF = (
     "/etc/isaac-ros-cli/docker/packaging/20-isaac-ros-dgx-spark.pref"
 )
@@ -62,12 +102,36 @@ PLATFORM_CONFIG = {
         "target_arch": "amd64",
         "debian_dist": "noble",
         "cuda_prefix": "13.2.",
+        "cuda_package_suffix": "13-2",
+        "cuda_toolkit_package": CUDA_TOOLKIT_13_2,
+        "installed_cuda_version_to_keep": "13.2.86-1",
+        "active_prefs": ((PACKAGED_CUDA_13_2_PREF, CUDA_13_2_PREF),),
+        "package_version_prefixes": {
+            **{
+                package: "13.2."
+                for package in CUDA_13_2_TOOLKIT_RELEASE_PACKAGES
+            },
+            **{package: "13.2." for package in CUDA_13_2_CONFIG_PACKAGES},
+        },
     },
     "arm64-fastos": {
         "target_arch": "arm64",
         "debian_dist": "noble-fastos",
         "cuda_prefix": "13.0.",
-        "active_pref": (PACKAGED_DGX_SPARK_PREF, DGX_SPARK_PREF),
+        "cuda_package_suffix": "13-0",
+        "cuda_toolkit_package": CUDA_TOOLKIT_13_0,
+        "installed_cuda_version_to_keep": "13.0.86-1",
+        "active_prefs": (
+            (PACKAGED_CUDA_13_0_PREF, CUDA_13_0_PREF),
+            (PACKAGED_DGX_SPARK_PREF, DGX_SPARK_PREF),
+        ),
+        "package_version_prefixes": {
+            **{
+                package: "13.0."
+                for package in CUDA_13_0_TOOLKIT_RELEASE_PACKAGES
+            },
+            **{package: "13.0." for package in CUDA_13_0_CONFIG_PACKAGES},
+        },
         "origin_uri_packages": DGX_SPARK_REPO_PACKAGES,
         "required_origin": ISAAC_DEBIAN_ORIGIN,
     },
@@ -75,12 +139,23 @@ PLATFORM_CONFIG = {
         "target_arch": "arm64",
         "debian_dist": "noble-jetpack",
         "cuda_prefix": "13.2.",
-        "active_pref": (PACKAGED_JETSON_PREF, JETSON_PREF),
+        "cuda_package_suffix": "13-2",
+        "cuda_toolkit_package": CUDA_TOOLKIT_13_2,
+        "installed_cuda_version_to_keep": "13.2.86-1",
+        "active_prefs": (
+            (PACKAGED_CUDA_13_2_PREF, CUDA_13_2_PREF),
+            (PACKAGED_JETSON_PREF, JETSON_PREF),
+        ),
         "jetson_repo_paths": ("common",),
         "package_version_prefixes": {
-            package: "10.16." for package in TENSORRT_PACKAGES
+            **{
+                package: "13.2."
+                for package in CUDA_13_2_TOOLKIT_RELEASE_PACKAGES
+            },
+            **{package: "13.2." for package in CUDA_13_2_CONFIG_PACKAGES},
+            **{package: "10.16." for package in TENSORRT_PACKAGES},
         },
-        "origin_uri_packages": (CUDA_TOOLKIT, *TENSORRT_PACKAGES),
+        "origin_uri_packages": TENSORRT_PACKAGES,
         "required_origin": JETSON_ORIGIN,
     },
 }
@@ -91,6 +166,10 @@ DEB_SEARCH_DIRS = (
 )
 
 PREF_CLEANUP_PATTERNS = (
+    CUDA_13_0_PREF,
+    f"{CUDA_13_0_PREF}.dpkg-*",
+    CUDA_13_2_PREF,
+    f"{CUDA_13_2_PREF}.dpkg-*",
     DGX_SPARK_PREF,
     f"{DGX_SPARK_PREF}.dpkg-*",
     JETSON_PREF,
@@ -170,6 +249,28 @@ def candidate_for(policy: str) -> str:
     raise AssertionError("apt policy output did not include a Candidate line")
 
 
+def version_priorities(policy: str) -> list[tuple[str, int]]:
+    priorities = []
+    for line in policy.splitlines():
+        fields = line.split()
+        if fields and fields[0] == "***":
+            fields = fields[1:]
+        if len(fields) >= 2 and re.match(r"^[0-9][^ ]*$", fields[0]):
+            try:
+                priority = int(fields[1])
+            except ValueError:
+                continue
+            priorities.append((fields[0], priority))
+    return priorities
+
+
+def priority_for_version(policy: str, version: str) -> int:
+    for policy_version, priority in version_priorities(policy):
+        if policy_version == version:
+            return priority
+    raise AssertionError(f"apt policy output did not include version {version}\n{policy}")
+
+
 def find_isaac_ros_cli_deb() -> Path:
     explicit_deb = os.environ.get("ISAAC_ROS_CLI_DEB")
     if explicit_deb:
@@ -246,14 +347,44 @@ class AptResolverHarness:
             capture_output=True,
         )
 
-    def configure_apt_resolver(self) -> None:
+    def installed_package_status(
+        self,
+        installed_packages: tuple[tuple[str, str], ...],
+    ) -> str:
+        stanzas = []
+        for package, version in installed_packages:
+            stanzas.append(
+                "\n".join(
+                    [
+                        f"Package: {package}",
+                        "Status: install ok installed",
+                        "Priority: optional",
+                        "Section: misc",
+                        "Installed-Size: 1",
+                        "Maintainer: NVIDIA <no-reply@nvidia.com>",
+                        f"Architecture: {self.target_arch}",
+                        f"Version: {version}",
+                        "Description: installed package for apt resolver tests",
+                    ]
+                )
+            )
+        return "\n\n".join(stanzas) + ("\n" if stanzas else "")
+
+    def configure_apt_resolver(
+        self,
+        installed_packages: tuple[tuple[str, str], ...] = (),
+    ) -> None:
+        self.cleanup()
         self.apt_root_context = tempfile.TemporaryDirectory(prefix="isaac-ros-cli-apt-")
         self.apt_root = Path(self.apt_root_context.name)
 
         (self.apt_root / "etc/apt/sources.list.d").mkdir(parents=True)
         (self.apt_root / "state/lists/partial").mkdir(parents=True)
         (self.apt_root / "cache/archives/partial").mkdir(parents=True)
-        (self.apt_root / "status").write_text("", encoding="utf-8")
+        (self.apt_root / "status").write_text(
+            self.installed_package_status(installed_packages),
+            encoding="utf-8",
+        )
 
         isaac_debian_repository = os.environ.get(
             "ISAAC_DEBIAN_REPOSITORY",
@@ -428,6 +559,34 @@ class IsaacRosCliPlatformTest(unittest.TestCase):
                 f"{package} would be downloaded from {uri}",
             )
 
+    def assert_cuda_package_suffixes(
+        self,
+        install_output: str,
+        expected_suffix: str,
+    ) -> None:
+        unexpected_packages = []
+        for line in install_output.splitlines():
+            fields = line.split()
+            if len(fields) < 2 or fields[0] != "Inst":
+                continue
+
+            package = fields[1]
+            if not package.startswith(CUDA_RELATED_PACKAGE_PREFIXES):
+                continue
+
+            suffix = CUDA_VERSIONED_PACKAGE_SUFFIX_RE.search(package)
+            if suffix is not None and suffix.group(0).lstrip("-") != expected_suffix:
+                unexpected_packages.append(package)
+
+        self.assertEqual(
+            unexpected_packages,
+            [],
+            (
+                f"CUDA-related transitive packages do not use {expected_suffix}: "
+                f"{', '.join(unexpected_packages)}\n{install_output}"
+            ),
+        )
+
     def assert_file_absent(self, path: str) -> None:
         self.assertFalse(Path(path).exists(), f"unexpected file exists: {path}")
 
@@ -449,13 +608,19 @@ class IsaacRosCliPlatformTest(unittest.TestCase):
         )
 
     def test_active_platform_preference_files(self) -> None:
-        active_pref = PLATFORM_CONFIG[self.platform].get("active_pref")
-        if active_pref is not None:
+        active_prefs = PLATFORM_CONFIG[self.platform].get("active_prefs", ())
+        active_pref_destinations = {active_pref[1] for active_pref in active_prefs}
+
+        for active_pref in active_prefs:
             self.assert_file_matches_source(*active_pref)
 
-        active_pref_destination = active_pref[1] if active_pref is not None else None
-        for pref in (DGX_SPARK_PREF, JETSON_PREF):
-            if pref != active_pref_destination:
+        for pref in (
+            CUDA_13_0_PREF,
+            CUDA_13_2_PREF,
+            DGX_SPARK_PREF,
+            JETSON_PREF,
+        ):
+            if pref not in active_pref_destinations:
                 self.assert_file_absent(pref)
         self.assert_file_absent(LEGACY_DGX_SPARK_PREF)
 
@@ -464,10 +629,18 @@ class IsaacRosCliPlatformTest(unittest.TestCase):
 
         platform_config = PLATFORM_CONFIG[self.platform]
         cuda_prefix = platform_config["cuda_prefix"]
-        cuda_toolkit_install = self.apt.apt_sim_install(CUDA_TOOLKIT)
-        self.assert_candidate_prefix(CUDA_TOOLKIT, cuda_prefix)
+        cuda_toolkit_package = platform_config["cuda_toolkit_package"]
+        cuda_toolkit_install = self.apt.apt_sim_install(cuda_toolkit_package)
+        self.assert_candidate_prefix(cuda_toolkit_package, cuda_prefix)
         self.assert_no_candidate(CUDA_TOOLKIT_13_3)
-        self.assertIn(f"Inst {CUDA_TOOLKIT} ({cuda_prefix}", cuda_toolkit_install)
+        self.assertIn(
+            f"Inst {cuda_toolkit_package} ({cuda_prefix}",
+            cuda_toolkit_install,
+        )
+        self.assert_cuda_package_suffixes(
+            cuda_toolkit_install,
+            platform_config["cuda_package_suffix"],
+        )
 
         for package, prefix in platform_config.get(
             "package_version_prefixes", {}
@@ -478,6 +651,34 @@ class IsaacRosCliPlatformTest(unittest.TestCase):
         required_origin = platform_config.get("required_origin")
         for package in platform_config.get("origin_uri_packages", ()):
             self.assert_package_origin(package, required_origin)
+
+    def test_installed_cuda_toolkit_package_outprioritizes_repository(self) -> None:
+        platform_config = PLATFORM_CONFIG[self.platform]
+        cuda_toolkit_package = platform_config["cuda_toolkit_package"]
+        installed_version = platform_config["installed_cuda_version_to_keep"]
+        cuda_prefix = platform_config["cuda_prefix"]
+        self.apt.configure_apt_resolver(
+            installed_packages=((cuda_toolkit_package, installed_version),)
+        )
+
+        policy = self.apt.apt_policy(cuda_toolkit_package)
+        installed_priority = priority_for_version(policy, installed_version)
+        repository_priorities = [
+            (version, priority)
+            for version, priority in version_priorities(policy)
+            if version.startswith(cuda_prefix) and version != installed_version
+        ]
+
+        self.assertEqual(candidate_for(policy), installed_version, policy)
+        self.assertEqual(installed_priority, 999, policy)
+        self.assertTrue(repository_priorities, policy)
+        self.assertTrue(
+            all(priority < installed_priority for _, priority in repository_priorities),
+            f"Repository versions should not outrank installed CUDA\n{policy}",
+        )
+
+        install_output = self.apt.apt_sim_install(cuda_toolkit_package)
+        self.assertNotIn(f"Inst {cuda_toolkit_package}", install_output)
 
 
 def parse_args() -> argparse.Namespace:

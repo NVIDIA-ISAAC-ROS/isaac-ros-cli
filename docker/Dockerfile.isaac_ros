@@ -38,7 +38,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 # Isaac ROS apt repository configuration
 ARG ISAAC_DEBIAN_KEY_URL="https://isaac.download.nvidia.com/isaac-ros/repos.key"
-ARG ISAAC_DEBIAN_REPOSITORY="https://isaac.download.nvidia.com/isaac-ros/release-4"
+ARG ISAAC_DEBIAN_REPOSITORY="https://isaac.download.nvidia.com/isaac-ros/release-5.0"
 ARG ISAAC_DEBIAN_DIST=""
 ARG ISAAC_DEBIAN_COMPONENTS="main"
 ARG ISAAC_DEBIAN_DISTRO_SUFFIX=""
@@ -74,6 +74,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 # Ensure CUDA, NVIDIA, and TensorRT binaries are available in PATH
 ENV PATH="/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/src/tensorrt/bin:${PATH}"
+ENV ROS_DISTRO=lyrical
+ENV ROS_ROOT=/opt/ros/${ROS_DISTRO}
 
 # Set up Jetson apt repository
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -87,20 +89,31 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     fi && \
     apt-get update
 
-# Set up ROS apt repository
+# Set up ROS 2 Lyrical apt repository (Isaac buildfarm CDN on noble).
+ARG ISAAC_ROS_CDN_KEY_URL="https://isaac.download.nvidia.com/isaac-ros/repos.key"
+ARG ISAAC_ROS_CDN_REPO="https://isaac.download.nvidia.com/isaac-ros/ubuntu/main"
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/1.1.0/ros2-apt-source_1.1.0.noble_all.deb" \
+    curl -fsSL "${ISAAC_ROS_CDN_KEY_URL}" \
+      | gpg --dearmor -o /usr/share/keyrings/isaac-ros-buildfarm.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/isaac-ros-buildfarm.gpg] ${ISAAC_ROS_CDN_REPO} noble main" \
+      > /etc/apt/sources.list.d/isaac-ros-buildfarm.list \
+    && apt-get update
+
+# Set up the standard ROS repository for distro-independent build tools.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    curl -L -o /tmp/ros2-apt-source.deb \
+      "https://github.com/ros-infrastructure/ros-apt-source/releases/download/1.1.0/ros2-apt-source_1.1.0.noble_all.deb" \
     && dpkg -i /tmp/ros2-apt-source.deb
 
-# Install ROS 2 base and tools
+# Install ROS 2 Lyrical base and tools
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y \
-        ros-jazzy-ros-base \
+        ros-${ROS_DISTRO}-ros-base \
         python3-colcon-common-extensions \
         python3-rosdep
 
 # Add ROS setup to bashrc
-RUN echo "source /opt/ros/jazzy/setup.bash" | sudo tee --append /etc/bash.bashrc
+RUN echo "source /opt/ros/lyrical/setup.bash" | sudo tee --append /etc/bash.bashrc
 
 # Colcon auto complete
 RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" | sudo tee --append /etc/bash.bashrc

@@ -1,0 +1,55 @@
+diff --git a/realsense2_camera/CMakeLists.txt b/realsense2_camera/CMakeLists.txt
+index bc20018..f530d8e 100644
+--- a/realsense2_camera/CMakeLists.txt
++++ b/realsense2_camera/CMakeLists.txt
+@@ -173,7 +173,8 @@ elseif("$ENV{ROS_DISTRO}" STREQUAL "rolling")
+   message(STATUS "Build for ROS2 Rolling")
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DROLLING")
+   set(SOURCES "${SOURCES}" src/ros_param_backend.cpp)
+-elseif("$ENV{ROS_DISTRO}" STREQUAL "jazzy")
++# TODO(yuankunz): Upstream this Lyrical compatibility fix for Dockerless users.
++elseif("$ENV{ROS_DISTRO}" STREQUAL "jazzy" OR "$ENV{ROS_DISTRO}" STREQUAL "lyrical")
+   message(STATUS "Build for ROS2 Jazzy")
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DJAZZY")
+   set(SOURCES "${SOURCES}" src/ros_param_backend.cpp)
+@@ -261,9 +261,10 @@ else()
+   list(APPEND dependencies realsense2)
+ endif()
+ 
+-ament_target_dependencies(${PROJECT_NAME}
+-  ${dependencies}
+-)
++foreach(dependency IN LISTS dependencies)
++  target_link_libraries(${PROJECT_NAME} ${${dependency}_TARGETS})
++endforeach()
++target_link_libraries(${PROJECT_NAME} tf2::tf2)
+ 
+ rclcpp_components_register_node(${PROJECT_NAME}
+   PLUGIN "realsense2_camera::RealSenseNodeFactory"
+@@ -319,10 +320,10 @@ if(BUILD_TESTING)
+           $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+           $<INSTALL_INTERFACE:include>
+        )
+-       ament_target_dependencies(${_test_name}
+-          std_srvs
+-          std_msgs
+-       )
++       target_link_libraries(${_test_name}
++         ${std_srvs_TARGETS}
++         ${std_msgs_TARGETS}
++       )
+        #target_link_libraries(${_test_name} name_of_local_library)
+     endforeach()
+   endforeach()
+diff --git a/realsense2_camera/include/base_realsense_node.h b/realsense2_camera/include/base_realsense_node.h
+index f5d590b..e411792 100755
+--- a/realsense2_camera/include/base_realsense_node.h
++++ b/realsense2_camera/include/base_realsense_node.h
+@@ -45,6 +45,6 @@
+ #include <sensor_msgs/msg/image.hpp>
+ #include <sensor_msgs/msg/imu.hpp>
+ 
+-#include <tf2/LinearMath/Quaternion.h>
++#include <tf2/LinearMath/Quaternion.hpp>
+ #include <tf2_ros/transform_broadcaster.h>
+ #include <tf2_ros/static_transform_broadcaster.h>
