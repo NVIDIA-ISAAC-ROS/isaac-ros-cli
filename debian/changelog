@@ -1,3 +1,12 @@
+isaac-ros-cli (2.7.0-1) noble; urgency=low
+
+  * Prefer Isaac ROS DeepStream packages on x86_64, Jetson, and DGX Spark.
+  * Replace the `nvv4l2` rosdep key with `deepstream`.
+  * Add rosdep mappings for GraspGenX, Unitree H2, and Flexiv Isaac Sim utilities.
+  * Add Python dependency mappings for hand tracking and inverse kinematics.
+
+ -- Isaac ROS Maintainers <isaac-ros-maintainers@nvidia.com>  Tue, 27 Oct 2026 12:00:00 +0000
+
 isaac-ros-cli (2.6.0-1) noble; urgency=low
 
   * Build Isaac ROS container images on ROS 2 Lyrical.
@@ -6,7 +15,7 @@ isaac-ros-cli (2.6.0-1) noble; urgency=low
   * Pin the CUDA toolkit per platform, 13.2 on x86_64 and JetPack and 13.0 on DGX Spark, instead of applying one CUDA preference to every platform.
   * Update pip shim constraints, including PyTorch 2.12 with CUDA 13.2, rosdep mappings, and Docker image definitions for Isaac ROS 5.0.
 
- -- Isaac ROS Maintainers <isaac-ros-maintainers@nvidia.com>  Mon, 21 Sep 2026 12:00:00 +0000
+ -- Isaac ROS Maintainers <isaac-ros-maintainers@nvidia.com>  Fri, 18 Sep 2026 12:00:00 +0000
 
 isaac-ros-cli (2.5.0-1) noble; urgency=low
 

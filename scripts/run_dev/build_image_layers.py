@@ -446,7 +446,8 @@ class ImageBuildPlan:
             expected to be pulled from the registry instead of rebuilt locally.
         """
         build_plan = {}
-        nvcr_url = "nvcr.io/nvidia/isaac/ros"
+        # CI overrides this to a registry its token can push to.
+        nvcr_url = os.getenv("ISAAC_ROS_NVCR_URL") or "nvcr.io/nvidia/isaac/ros"
         dockerfile_list = self.dockerfiles_
         file_arch = 'arm64' if arch == 'aarch64' else 'amd64'
         if isaac_ros_platform is None:

@@ -67,6 +67,7 @@ DGX_SPARK_REPO_PACKAGES = ("vpi4-dev", "libnvvpi4", "deepstream-spark")
 CUDA_13_0_PREF = "/etc/apt/preferences.d/isaac-ros-cuda-13-0.pref"
 CUDA_13_2_PREF = "/etc/apt/preferences.d/20-isaac-ros-cuda-13-2.pref"
 DGX_SPARK_PREF = "/etc/apt/preferences.d/20-isaac-ros-dgx-spark.pref"
+DEEPSTREAM_PREF = "/etc/apt/preferences.d/20-isaac-ros-deepstream.pref"
 JETSON_PREF = "/etc/apt/preferences.d/20-isaac-ros-jetson.pref"
 LEGACY_DGX_SPARK_PREF = "/etc/apt/preferences.d/isaac-ros-dgx-spark.pref"
 PACKAGED_CUDA_13_0_PREF = (
@@ -77,6 +78,9 @@ PACKAGED_CUDA_13_2_PREF = (
 )
 PACKAGED_DGX_SPARK_PREF = (
     "/etc/isaac-ros-cli/docker/packaging/20-isaac-ros-dgx-spark.pref"
+)
+PACKAGED_DEEPSTREAM_PREF = (
+    "/etc/isaac-ros-cli/docker/packaging/20-isaac-ros-deepstream.pref"
 )
 PACKAGED_JETSON_PREF = "/etc/isaac-ros-cli/docker/packaging/20-isaac-ros-jetson.pref"
 
@@ -105,7 +109,10 @@ PLATFORM_CONFIG = {
         "cuda_package_suffix": "13-2",
         "cuda_toolkit_package": CUDA_TOOLKIT_13_2,
         "installed_cuda_version_to_keep": "13.2.86-1",
-        "active_prefs": ((PACKAGED_CUDA_13_2_PREF, CUDA_13_2_PREF),),
+        "active_prefs": (
+            (PACKAGED_CUDA_13_2_PREF, CUDA_13_2_PREF),
+            (PACKAGED_DEEPSTREAM_PREF, DEEPSTREAM_PREF),
+        ),
         "package_version_prefixes": {
             **{
                 package: "13.2."
@@ -124,6 +131,7 @@ PLATFORM_CONFIG = {
         "active_prefs": (
             (PACKAGED_CUDA_13_0_PREF, CUDA_13_0_PREF),
             (PACKAGED_DGX_SPARK_PREF, DGX_SPARK_PREF),
+            (PACKAGED_DEEPSTREAM_PREF, DEEPSTREAM_PREF),
         ),
         "package_version_prefixes": {
             **{
@@ -144,6 +152,7 @@ PLATFORM_CONFIG = {
         "installed_cuda_version_to_keep": "13.2.86-1",
         "active_prefs": (
             (PACKAGED_CUDA_13_2_PREF, CUDA_13_2_PREF),
+            (PACKAGED_DEEPSTREAM_PREF, DEEPSTREAM_PREF),
             (PACKAGED_JETSON_PREF, JETSON_PREF),
         ),
         "jetson_repo_paths": ("common",),
@@ -172,6 +181,8 @@ PREF_CLEANUP_PATTERNS = (
     f"{CUDA_13_2_PREF}.dpkg-*",
     DGX_SPARK_PREF,
     f"{DGX_SPARK_PREF}.dpkg-*",
+    DEEPSTREAM_PREF,
+    f"{DEEPSTREAM_PREF}.dpkg-*",
     JETSON_PREF,
     f"{JETSON_PREF}.dpkg-*",
     LEGACY_DGX_SPARK_PREF,
@@ -618,6 +629,7 @@ class IsaacRosCliPlatformTest(unittest.TestCase):
             CUDA_13_0_PREF,
             CUDA_13_2_PREF,
             DGX_SPARK_PREF,
+            DEEPSTREAM_PREF,
             JETSON_PREF,
         ):
             if pref not in active_pref_destinations:

@@ -66,6 +66,8 @@ case "$1" in
         CUDA_13_2_PREF_DST="/etc/apt/preferences.d/20-isaac-ros-cuda-13-2.pref"
         SPARK_PREF_SRC="/etc/isaac-ros-cli/docker/packaging/20-isaac-ros-dgx-spark.pref"
         SPARK_PREF_DST="/etc/apt/preferences.d/20-isaac-ros-dgx-spark.pref"
+        DEEPSTREAM_PREF_SRC="/etc/isaac-ros-cli/docker/packaging/20-isaac-ros-deepstream.pref"
+        DEEPSTREAM_PREF_DST="/etc/apt/preferences.d/20-isaac-ros-deepstream.pref"
         JETSON_PREF_SRC="/etc/isaac-ros-cli/docker/packaging/20-isaac-ros-jetson.pref"
         JETSON_PREF_DST="/etc/apt/preferences.d/20-isaac-ros-jetson.pref"
         PLATFORM_PY="/usr/lib/python3/dist-packages/isaac_ros_cli/platform.py"
@@ -118,6 +120,9 @@ case "$1" in
             "arm64-fastos" "$CUDA_13_0_PREF_SRC" "$CUDA_13_0_PREF_DST" "CUDA 13.0"
         activate_platform_pref \
             "arm64-fastos" "$SPARK_PREF_SRC" "$SPARK_PREF_DST" "DGX Spark"
+        activate_platform_pref \
+            "amd64 arm64-jetpack arm64-fastos" \
+            "$DEEPSTREAM_PREF_SRC" "$DEEPSTREAM_PREF_DST" "DeepStream"
         activate_platform_pref \
             "arm64-jetpack" "$JETSON_PREF_SRC" "$JETSON_PREF_DST" "Jetson"
         ;;
